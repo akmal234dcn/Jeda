@@ -1,0 +1,2376 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#4f46e5">
+<meta name="description" content="Jeda — aplikasi penjadwalan belajar dengan metode spaced repetition berbasis riset mastery learning.">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Jeda">
+<title>Jeda — Penjadwalan Spaced Repetition</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='24' fill='%234f46e5'/%3E%3Ccircle cx='50' cy='50' r='26' fill='none' stroke='white' stroke-width='8' stroke-dasharray='18 10'/%3E%3C/svg%3E">
+<style>
+/* ============================ TOKENS ============================ */
+:root{
+  --bg:#f4f5fa; --bg-2:#eceef6; --card:#ffffff; --card-2:#fafbfe;
+  --ink:#161a2b; --ink-2:#4b5169; --ink-3:#828aa6;
+  --line:#e4e7f1; --line-2:#eef0f7;
+  --brand:#4f46e5; --brand-2:#6d64f0; --brand-soft:#eef0ff; --brand-ink:#3730a3;
+  --ok:#0f9d6e; --ok-soft:#e3f8f0; --ok-ink:#0a6b4c;
+  --warn:#c97a05; --warn-soft:#fdf1dc; --warn-ink:#8a5403;
+  --bad:#e0405f; --bad-soft:#fdeaee; --bad-ink:#a81f3c;
+  --info:#1f7ae0; --info-soft:#e7f1fd;
+  --shadow:0 1px 2px rgba(20,24,50,.05), 0 8px 24px -12px rgba(20,24,50,.18);
+  --shadow-lg:0 2px 6px rgba(20,24,50,.06), 0 24px 60px -20px rgba(20,24,50,.30);
+  --r:14px; --r-sm:10px; --r-lg:20px;
+  --sidebar:248px;
+}
+[data-theme="dark"]{
+  --bg:#0f1119; --bg-2:#0a0c13; --card:#181b27; --card-2:#1e2230;
+  --ink:#e9ebf5; --ink-2:#a9b0c8; --ink-3:#767e99;
+  --line:#262b3c; --line-2:#202534;
+  --brand:#7c74ff; --brand-2:#8f88ff; --brand-soft:#221f45; --brand-ink:#c4c0ff;
+  --ok:#31d69a; --ok-soft:#123028; --ok-ink:#7fe9c4;
+  --warn:#f0b45a; --warn-soft:#332612; --warn-ink:#ffd79a;
+  --bad:#ff7189; --bad-soft:#351a22; --bad-ink:#ffa8b8;
+  --info:#5aa8ff; --info-soft:#152539;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px -14px rgba(0,0,0,.7);
+  --shadow-lg:0 4px 12px rgba(0,0,0,.5), 0 30px 70px -24px rgba(0,0,0,.85);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg); color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Noto Sans",sans-serif;
+  font-size:15px; line-height:1.5; -webkit-font-smoothing:antialiased;
+  overscroll-behavior-y:none;
+}
+button,input,select,textarea{font:inherit;color:inherit}
+a{color:var(--brand)}
+h1,h2,h3,h4{margin:0;line-height:1.25;font-weight:700}
+p{margin:0}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:var(--line);border-radius:20px;border:3px solid transparent;background-clip:content-box}
+::-webkit-scrollbar-track{background:transparent}
+
+/* ============================ LAYOUT ============================ */
+.app{display:flex;min-height:100vh}
+.sidebar{
+  width:var(--sidebar);flex:0 0 var(--sidebar);position:sticky;top:0;height:100vh;
+  background:var(--card);border-right:1px solid var(--line);
+  display:flex;flex-direction:column;padding:18px 14px;gap:6px;z-index:40;
+}
+.brand{display:flex;align-items:center;gap:10px;padding:6px 8px 16px}
+.brand-mark{width:36px;height:36px;border-radius:11px;background:linear-gradient(140deg,var(--brand),#8b5cf6);display:grid;place-items:center;flex:0 0 auto;box-shadow:0 4px 12px -4px var(--brand)}
+.brand-mark svg{width:20px;height:20px}
+.brand-name{font-weight:800;font-size:17px;letter-spacing:-.3px}
+.brand-sub{font-size:11px;color:var(--ink-3);margin-top:-2px}
+.nav{display:flex;flex-direction:column;gap:2px}
+.nav-btn{
+  display:flex;align-items:center;gap:11px;width:100%;padding:9px 11px;border:0;background:transparent;
+  border-radius:var(--r-sm);cursor:pointer;color:var(--ink-2);font-weight:600;font-size:14px;text-align:left;
+  transition:background .15s,color .15s;
+}
+.nav-btn svg{width:18px;height:18px;flex:0 0 auto;opacity:.85}
+.nav-btn:hover{background:var(--bg-2);color:var(--ink)}
+.nav-btn.active{background:var(--brand-soft);color:var(--brand-ink)}
+.nav-btn.active svg{opacity:1}
+.nav-badge{margin-left:auto;min-width:20px;height:20px;padding:0 6px;border-radius:20px;background:var(--bad);color:#fff;font-size:11px;font-weight:800;display:grid;place-items:center}
+.nav-sep{height:1px;background:var(--line);margin:12px 4px}
+.nav-label{font-size:10.5px;font-weight:800;letter-spacing:.9px;text-transform:uppercase;color:var(--ink-3);padding:0 11px 6px}
+.side-foot{margin-top:auto;display:flex;flex-direction:column;gap:8px}
+
+.main{flex:1;min-width:0;display:flex;flex-direction:column}
+.topbar{
+  position:sticky;top:0;z-index:30;background:color-mix(in srgb,var(--bg) 86%,transparent);
+  backdrop-filter:blur(12px);border-bottom:1px solid var(--line);
+  padding:16px 26px;display:flex;align-items:center;gap:14px;
+}
+.topbar h1{font-size:20px;letter-spacing:-.4px}
+.topbar .sub{font-size:12.5px;color:var(--ink-3);margin-top:2px}
+.topbar-actions{margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+.content{padding:24px 26px 80px;max-width:1240px;width:100%}
+.view{display:none;animation:fade .22s ease}
+.view.active{display:block}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+/* ============================ PRIMITIVES ============================ */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:9px 15px;border-radius:var(--r-sm);
+  border:1px solid var(--line);background:var(--card);color:var(--ink);font-weight:650;font-size:13.5px;
+  cursor:pointer;transition:all .15s;white-space:nowrap;box-shadow:0 1px 2px rgba(20,24,50,.04);
+}
+.btn:hover{border-color:var(--ink-3);transform:translateY(-1px)}
+.btn:active{transform:none}
+.btn svg{width:16px;height:16px}
+.btn-primary{background:var(--brand);border-color:var(--brand);color:#fff;box-shadow:0 4px 14px -6px var(--brand)}
+.btn-primary:hover{background:var(--brand-2);border-color:var(--brand-2)}
+.btn-ok{background:var(--ok);border-color:var(--ok);color:#fff}
+.btn-warn{background:var(--warn);border-color:var(--warn);color:#fff}
+.btn-bad{background:var(--bad);border-color:var(--bad);color:#fff}
+.btn-ghost{background:transparent;border-color:transparent;box-shadow:none}
+.btn-ghost:hover{background:var(--bg-2);border-color:transparent}
+.btn-sm{padding:6px 11px;font-size:12.5px;border-radius:9px}
+.btn-sm svg{width:14px;height:14px}
+.btn-icon{padding:8px;width:34px;height:34px}
+.btn-block{width:100%}
+.btn:disabled{opacity:.45;cursor:not-allowed;transform:none}
+
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow)}
+.card-pad{padding:18px}
+.card-head{padding:16px 18px;border-bottom:1px solid var(--line-2);display:flex;align-items:center;gap:10px}
+.card-head h3{font-size:15px}
+.card-head .hint{font-size:12px;color:var(--ink-3);font-weight:500}
+.card-head .right{margin-left:auto;display:flex;gap:6px;align-items:center}
+
+.grid{display:grid;gap:16px}
+.g2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.g3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.g4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.split{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:16px;align-items:start}
+@media(max-width:1080px){.g4{grid-template-columns:repeat(2,minmax(0,1fr))}.g3{grid-template-columns:repeat(2,minmax(0,1fr))}.split{grid-template-columns:1fr}}
+@media(max-width:680px){.g2,.g3,.g4{grid-template-columns:1fr}}
+
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-size:12.5px;font-weight:700;color:var(--ink-2)}
+.field .help{font-size:11.5px;color:var(--ink-3);line-height:1.45}
+.input,.select,.textarea{
+  width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:var(--r-sm);
+  background:var(--card-2);transition:border-color .15s,box-shadow .15s;font-size:14px;
+}
+.input:focus,.select:focus,.textarea:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-soft);background:var(--card)}
+.textarea{resize:vertical;min-height:70px}
+.select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23828aa6' stroke-width='2.5' stroke-linecap='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 11px center;padding-right:32px}
+.input[type=color]{padding:3px;height:42px;cursor:pointer}
+.row{display:flex;gap:12px;flex-wrap:wrap}
+.row>*{flex:1;min-width:0}
+
+.badge{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:20px;font-size:11.5px;font-weight:750;letter-spacing:.1px;white-space:nowrap}
+.badge svg{width:12px;height:12px}
+.b-ok{background:var(--ok-soft);color:var(--ok-ink)}
+.b-warn{background:var(--warn-soft);color:var(--warn-ink)}
+.b-bad{background:var(--bad-soft);color:var(--bad-ink)}
+.b-brand{background:var(--brand-soft);color:var(--brand-ink)}
+.b-mute{background:var(--bg-2);color:var(--ink-3)}
+.b-info{background:var(--info-soft);color:var(--info)}
+
+.dot{width:9px;height:9px;border-radius:50%;flex:0 0 auto}
+.mono{font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
+.muted{color:var(--ink-3)}
+.small{font-size:12.5px}
+.xsmall{font-size:11.5px}
+.strong{font-weight:750}
+.center{text-align:center}
+.empty{text-align:center;padding:46px 20px;color:var(--ink-3)}
+.empty svg{width:44px;height:44px;opacity:.35;margin-bottom:12px}
+.empty h4{font-size:15px;color:var(--ink-2);margin-bottom:5px}
+
+.stat{padding:16px 18px;display:flex;flex-direction:column;gap:3px}
+.stat .k{font-size:11.5px;font-weight:750;text-transform:uppercase;letter-spacing:.7px;color:var(--ink-3)}
+.stat .v{font-size:28px;font-weight:800;letter-spacing:-1px;line-height:1.1}
+.stat .n{font-size:12px;color:var(--ink-3)}
+
+.progress{height:7px;border-radius:20px;background:var(--bg-2);overflow:hidden}
+.progress i{display:block;height:100%;border-radius:20px;background:var(--brand);transition:width .4s ease}
+.progress.ok i{background:var(--ok)}
+.progress.bad i{background:var(--bad)}
+.progress.warn i{background:var(--warn)}
+
+.chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:9px;background:var(--bg-2);font-size:12px;font-weight:650;color:var(--ink-2)}
+
+.tabs{display:flex;gap:4px;padding:4px;background:var(--bg-2);border-radius:12px;width:fit-content;flex-wrap:wrap}
+.tab{padding:7px 14px;border:0;background:transparent;border-radius:9px;cursor:pointer;font-weight:650;font-size:13px;color:var(--ink-3)}
+.tab.active{background:var(--card);color:var(--ink);box-shadow:var(--shadow)}
+
+.hr{height:1px;background:var(--line-2);margin:14px 0}
+
+/* ============================ BANNER ============================ */
+.banner{
+  display:flex;gap:13px;align-items:flex-start;padding:14px 16px;border-radius:var(--r);
+  border:1px solid;margin-bottom:16px;
+}
+.banner svg{width:19px;height:19px;flex:0 0 auto;margin-top:1px}
+.banner.ok{background:var(--ok-soft);border-color:color-mix(in srgb,var(--ok) 30%,transparent);color:var(--ok-ink)}
+.banner.bad{background:var(--bad-soft);border-color:color-mix(in srgb,var(--bad) 30%,transparent);color:var(--bad-ink)}
+.banner.warn{background:var(--warn-soft);border-color:color-mix(in srgb,var(--warn) 30%,transparent);color:var(--warn-ink)}
+.banner.info{background:var(--info-soft);border-color:color-mix(in srgb,var(--info) 30%,transparent);color:var(--info)}
+.banner > div > b:first-child{display:block;font-size:13.5px;margin-bottom:1px}
+.banner strong{font-weight:800}
+.banner span{font-size:12.5px;opacity:.88;line-height:1.45}
+
+/* ============================ REVIEW LIST ============================ */
+.rlist{display:flex;flex-direction:column}
+.ritem{
+  display:flex;align-items:center;gap:13px;padding:13px 18px;border-bottom:1px solid var(--line-2);
+  cursor:pointer;transition:background .13s;
+}
+.ritem:last-child{border-bottom:0}
+.ritem:hover{background:var(--card-2)}
+.ritem .bar{width:4px;align-self:stretch;border-radius:20px;flex:0 0 auto;min-height:38px}
+.ritem .ttl{font-weight:700;font-size:14px}
+.ritem .meta{font-size:12px;color:var(--ink-3);margin-top:2px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.ritem .acts{margin-left:auto;display:flex;gap:6px;align-items:center;flex-shrink:0}
+.ritem .stepnum{
+  width:34px;height:34px;border-radius:11px;display:grid;place-items:center;font-weight:800;font-size:13px;flex:0 0 auto;
+  background:var(--brand-soft);color:var(--brand-ink);
+}
+.ritem.done{opacity:.55}
+.ritem.overdue .stepnum{background:var(--bad-soft);color:var(--bad-ink)}
+
+/* ============================ COURSE CARD ============================ */
+.course{padding:0;overflow:hidden;display:flex;flex-direction:column}
+.course-top{padding:15px 16px 13px;display:flex;gap:12px;align-items:flex-start;border-bottom:1px solid var(--line-2)}
+.course-av{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;font-weight:800;font-size:15px;color:#fff;flex:0 0 auto}
+.course-name{font-size:15px;font-weight:750;letter-spacing:-.2px}
+.course-sub{font-size:12px;color:var(--ink-3);margin-top:1px}
+.course-body{padding:13px 16px;display:flex;flex-direction:column;gap:11px;flex:1}
+.score-big{display:flex;align-items:baseline;gap:6px}
+.score-big .n{font-size:26px;font-weight:800;letter-spacing:-1px}
+.score-big .u{font-size:13px;color:var(--ink-3);font-weight:600}
+.kv{display:flex;justify-content:space-between;gap:10px;font-size:12.5px}
+.kv .k{color:var(--ink-3)}
+.kv .v{font-weight:650;text-align:right}
+.course-foot{padding:11px 16px;border-top:1px solid var(--line-2);display:flex;gap:7px;background:var(--card-2);flex-wrap:wrap}
+
+.ladder{display:flex;gap:5px;align-items:flex-end}
+.ladder .rung{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px}
+.ladder .bar{width:100%;border-radius:5px 5px 3px 3px;background:var(--bg-2);min-height:6px;transition:background .2s}
+.ladder .rung.done .bar{background:var(--ok)}
+.ladder .rung.now .bar{background:var(--brand);box-shadow:0 0 0 2px var(--brand-soft)}
+.ladder .rung.late .bar{background:var(--bad)}
+.ladder .d{font-size:9.5px;color:var(--ink-3);font-weight:700}
+
+/* ============================ CALENDAR ============================ */
+.cal-head{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line-2);flex-wrap:wrap}
+.cal-title{font-size:16px;font-weight:800;letter-spacing:-.3px;min-width:170px}
+.cal-nav{display:flex;gap:4px;margin-left:auto}
+.cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr))}
+.cal-dow{padding:8px 6px;text-align:center;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.7px;color:var(--ink-3);border-bottom:1px solid var(--line-2)}
+.cal-cell{
+  min-height:104px;border-right:1px solid var(--line-2);border-bottom:1px solid var(--line-2);
+  padding:6px;display:flex;flex-direction:column;gap:4px;cursor:pointer;transition:background .13s;position:relative;
+}
+.cal-cell:nth-child(7n){border-right:0}
+.cal-cell:hover{background:var(--card-2)}
+.cal-cell.out{opacity:.36;background:var(--card-2)}
+.cal-cell.today{background:var(--brand-soft)}
+.cal-cell.sel{outline:2px solid var(--brand);outline-offset:-2px;z-index:2}
+.cal-dnum{font-size:12px;font-weight:750;color:var(--ink-2);width:22px;height:22px;border-radius:50%;display:grid;place-items:center}
+.cal-cell.today .cal-dnum{background:var(--brand);color:#fff}
+.cal-cell.weekend .cal-dnum{color:var(--bad)}
+.cal-ev{
+  display:flex;align-items:center;gap:5px;padding:3px 6px;border-radius:6px;font-size:11px;font-weight:650;
+  background:var(--bg-2);color:var(--ink-2);overflow:hidden;white-space:nowrap;text-overflow:ellipsis;cursor:pointer;
+  border-left:3px solid var(--brand);
+}
+.cal-ev:hover{filter:brightness(.96)}
+.cal-ev.t-remedial{border-left-color:var(--bad);background:var(--bad-soft);color:var(--bad-ink)}
+.cal-ev.t-exam{border-left-color:var(--warn);background:var(--warn-soft);color:var(--warn-ink);font-weight:800}
+.cal-ev.t-done{opacity:.5;text-decoration:line-through}
+.cal-more{font-size:10.5px;color:var(--ink-3);font-weight:700;padding-left:4px}
+@media(max-width:760px){
+  .cal-cell{min-height:74px;padding:4px}
+  .cal-ev span{display:none}
+  .cal-ev{padding:3px 4px;justify-content:center}
+  .cal-dnum{width:18px;height:18px;font-size:11px}
+}
+
+/* ============================ MODAL ============================ */
+.modal-root{position:fixed;inset:0;z-index:100;display:none}
+.modal-root.open{display:block}
+.modal-bg{position:absolute;inset:0;background:rgba(10,12,22,.5);backdrop-filter:blur(3px);animation:fade .18s}
+.modal{
+  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(620px,calc(100vw - 28px));
+  max-height:calc(100vh - 40px);background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg);
+  box-shadow:var(--shadow-lg);display:flex;flex-direction:column;overflow:hidden;animation:pop .22s cubic-bezier(.2,.9,.3,1.2);
+}
+.modal.wide{width:min(880px,calc(100vw - 28px))}
+@keyframes pop{from{opacity:0;transform:translate(-50%,-46%) scale(.96)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+.modal-head{padding:17px 20px;border-bottom:1px solid var(--line-2);display:flex;align-items:flex-start;gap:12px}
+.modal-head h3{font-size:16.5px;letter-spacing:-.3px}
+.modal-head .sub{font-size:12.5px;color:var(--ink-3);margin-top:3px}
+.modal-body{padding:20px;overflow-y:auto;flex:1}
+.modal-foot{padding:14px 20px;border-top:1px solid var(--line-2);display:flex;gap:8px;justify-content:flex-end;background:var(--card-2);flex-wrap:wrap}
+.x{margin-left:auto;width:32px;height:32px;border-radius:9px;border:1px solid var(--line);background:var(--card);cursor:pointer;display:grid;place-items:center;flex:0 0 auto}
+.x:hover{background:var(--bg-2)}
+.x svg{width:15px;height:15px}
+
+.sec-title{font-size:11.5px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:var(--ink-3);margin:18px 0 9px}
+.sec-title:first-child{margin-top:0}
+
+.topic-row{display:flex;gap:8px;align-items:center;margin-bottom:7px}
+.topic-row .input{flex:1}
+.topic-row .sc{width:82px;flex:0 0 auto}
+.topic-row .del{width:36px;height:38px;flex:0 0 auto;padding:0;display:grid;place-items:center}
+
+.verdict{padding:16px;border-radius:var(--r);border:1px solid;margin:16px 0 0}
+.verdict.ok{background:var(--ok-soft);border-color:color-mix(in srgb,var(--ok) 32%,transparent)}
+.verdict.bad{background:var(--bad-soft);border-color:color-mix(in srgb,var(--bad) 32%,transparent)}
+.verdict.warn{background:var(--warn-soft);border-color:color-mix(in srgb,var(--warn) 32%,transparent)}
+.verdict h4{font-size:14.5px;margin-bottom:5px;display:flex;align-items:center;gap:7px}
+.verdict p{font-size:12.8px;color:var(--ink-2);line-height:1.55}
+.verdict ul{margin:7px 0 0;padding-left:18px;font-size:12.5px;color:var(--ink-2);line-height:1.6}
+
+.rate-btns{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-top:14px}
+.rate{padding:14px 10px;border-radius:var(--r);border:1.5px solid var(--line);background:var(--card-2);cursor:pointer;text-align:center;transition:all .15s}
+.rate:hover{transform:translateY(-2px);box-shadow:var(--shadow)}
+.rate b{display:block;font-size:13.5px;margin-bottom:3px}
+.rate span{font-size:11.5px;color:var(--ink-3);line-height:1.4;display:block}
+.rate.r-ok:hover,.rate.r-ok.sel{border-color:var(--ok);background:var(--ok-soft)}
+.rate.r-warn:hover,.rate.r-warn.sel{border-color:var(--warn);background:var(--warn-soft)}
+.rate.r-bad:hover,.rate.r-bad.sel{border-color:var(--bad);background:var(--bad-soft)}
+@media(max-width:520px){.rate-btns{grid-template-columns:1fr}.rate{display:flex;align-items:center;gap:10px;text-align:left;padding:11px 13px}.rate span{margin-top:0}}
+
+/* ============================ METHOD / RESEARCH ============================ */
+.tier-table{width:100%;border-collapse:collapse;font-size:13px}
+.tier-table th{text-align:left;padding:9px 11px;background:var(--bg-2);font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--ink-3);border-bottom:1px solid var(--line)}
+.tier-table td{padding:11px;border-bottom:1px solid var(--line-2);vertical-align:top}
+.tier-table tr:last-child td{border-bottom:0}
+.cite{display:flex;gap:11px;padding:13px 0;border-bottom:1px solid var(--line-2)}
+.cite:last-child{border-bottom:0}
+.cite .no{width:24px;height:24px;border-radius:8px;background:var(--brand-soft);color:var(--brand-ink);display:grid;place-items:center;font-size:11px;font-weight:800;flex:0 0 auto}
+.cite b{font-size:13px;display:block}
+.cite p{font-size:12.5px;color:var(--ink-2);margin-top:3px;line-height:1.55}
+.cite .src{font-size:11.5px;color:var(--ink-3);margin-top:4px;font-style:italic}
+
+/* ============================ TOAST ============================ */
+.toasts{position:fixed;right:18px;bottom:18px;z-index:200;display:flex;flex-direction:column;gap:9px;max-width:min(360px,calc(100vw - 36px))}
+.toast{
+  background:var(--card);border:1px solid var(--line);border-left:4px solid var(--brand);border-radius:12px;
+  padding:12px 14px;box-shadow:var(--shadow-lg);font-size:13px;animation:slide .25s cubic-bezier(.2,.9,.3,1.1);
+  display:flex;gap:9px;align-items:flex-start;
+}
+.toast.ok{border-left-color:var(--ok)} .toast.bad{border-left-color:var(--bad)} .toast.warn{border-left-color:var(--warn)}
+.toast svg{width:17px;height:17px;flex:0 0 auto;margin-top:1px}
+.toast b{display:block;font-size:13px;margin-bottom:1px}
+.toast span{color:var(--ink-2);font-size:12.3px;line-height:1.45}
+@keyframes slide{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:none}}
+
+/* ============================ MOBILE ============================ */
+.mob-top{display:none}
+.mobnav{display:none}
+@media(max-width:860px){
+  .sidebar{display:none}
+  .mob-top{
+    display:flex;align-items:center;gap:10px;padding:12px 16px;position:sticky;top:0;z-index:35;
+    background:color-mix(in srgb,var(--bg) 90%,transparent);backdrop-filter:blur(12px);border-bottom:1px solid var(--line);
+  }
+  .topbar{display:none}
+  .content{padding:16px 14px 90px}
+  .mobnav{
+    display:flex;position:fixed;bottom:0;left:0;right:0;z-index:50;background:var(--card);
+    border-top:1px solid var(--line);padding:7px 4px calc(7px + env(safe-area-inset-bottom));justify-content:space-around;
+  }
+  .mobnav button{
+    flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;background:transparent;border:0;cursor:pointer;
+    padding:5px 2px;border-radius:10px;color:var(--ink-3);font-size:10px;font-weight:700;position:relative;
+  }
+  .mobnav button svg{width:20px;height:20px}
+  .mobnav button.active{color:var(--brand)}
+  .mobnav .mbadge{position:absolute;top:1px;right:calc(50% - 18px);min-width:16px;height:16px;padding:0 4px;border-radius:16px;background:var(--bad);color:#fff;font-size:9.5px;font-weight:800;display:grid;place-items:center}
+  .split{grid-template-columns:1fr}
+  .modal-foot{justify-content:stretch}
+  .modal-foot .btn{flex:1}
+  .toasts{left:14px;right:14px;bottom:76px;max-width:none}
+}
+.hide{display:none !important}
+details.guide{border:1px solid var(--line);border-radius:var(--r-sm);background:var(--card-2);margin-top:12px;overflow:hidden}
+details.guide summary{cursor:pointer;padding:10px 13px;font-size:12.5px;font-weight:750;list-style:none;display:flex;align-items:center;gap:8px}
+details.guide summary::-webkit-details-marker{display:none}
+details.guide summary::after{content:"";margin-left:auto;width:14px;height:14px;background:currentColor;
+  -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") center/contain no-repeat;
+  mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") center/contain no-repeat;
+  transition:transform .2s}
+details.guide[open] summary::after{transform:rotate(180deg)}
+details.guide .body{padding:4px 15px 14px;border-top:1px solid var(--line-2)}
+details.guide h5{margin:12px 0 5px;font-size:12px;font-weight:800;color:var(--brand-ink)}
+details.guide ol{margin:0;padding-left:18px;font-size:12px;line-height:1.65;color:var(--ink-2)}
+details.guide li{margin-bottom:3px}
+details.guide code{background:var(--bg-2);padding:1px 5px;border-radius:5px;font-size:11px}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- ================= SIDEBAR ================= -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="8" stroke-dasharray="6 4"/><path d="M12 8v4l2.5 2"/></svg>
+      </div>
+      <div>
+        <div class="brand-name">Jeda</div>
+        <div class="brand-sub">Spaced Repetition</div>
+      </div>
+    </div>
+    <nav class="nav" id="nav"></nav>
+    <div class="side-foot">
+      <div class="nav-sep"></div>
+      <button class="nav-btn js-install hide" data-act="install-app">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 19h16"/></svg>
+        Instal Aplikasi
+      </button>
+      <button class="nav-btn" data-act="export-ics-all">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="M12 14v4M10 16h4"/></svg>
+        Export ke Kalender
+      </button>
+      <button class="nav-btn" data-act="toggle-theme" id="themeBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>
+        <span id="themeLabel">Mode Gelap</span>
+      </button>
+    </div>
+  </aside>
+
+  <div class="main">
+    <!-- Mobile top -->
+    <div class="mob-top">
+      <div class="brand-mark" style="width:30px;height:30px;border-radius:9px">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" style="width:16px;height:16px"><circle cx="12" cy="12" r="8" stroke-dasharray="6 4"/><path d="M12 8v4l2.5 2"/></svg>
+      </div>
+      <div style="font-weight:800;font-size:16px">Jeda</div>
+      <div style="margin-left:auto;display:flex;gap:6px">
+        <button class="btn btn-icon" data-act="toggle-theme" id="themeBtn2" title="Ganti tema">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>
+        </button>
+        <button class="btn btn-primary btn-sm" data-act="new-course">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Matkul
+        </button>
+      </div>
+    </div>
+
+    <!-- Topbar -->
+    <div class="topbar">
+      <div>
+        <h1 id="pageTitle">Hari Ini</h1>
+        <div class="sub" id="pageSub">Ringkasan jadwal review kamu</div>
+      </div>
+      <div class="topbar-actions" id="pageActions"></div>
+    </div>
+
+    <div class="content" id="content">
+      <section class="view" id="view-dash"></section>
+      <section class="view" id="view-courses"></section>
+      <section class="view" id="view-calendar"></section>
+      <section class="view" id="view-method"></section>
+      <section class="view" id="view-settings"></section>
+    </div>
+  </div>
+</div>
+
+<nav class="mobnav" id="mobnav"></nav>
+<div class="modal-root" id="modalRoot"></div>
+<div class="toasts" id="toasts"></div>
+<script>
+/* =====================================================================
+   JEDA — Penjadwalan Belajar Spaced Repetition
+   Single-file app. Data disimpan di localStorage (dengan fallback memori).
+   ===================================================================== */
+
+/* ---------------------------- UTILITAS ---------------------------- */
+const $  = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+const uid = () => Math.random().toString(36).slice(2, 9) + Date.now().toString(36).slice(-4);
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const round1 = n => Math.round(n * 10) / 10;
+
+function toISO(d){ const x = new Date(d.getTime ? d.getTime() : d);
+  return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; }
+function parseISO(s){ const [y,m,d] = String(s).split('-').map(Number); return new Date(y, (m||1)-1, d||1); }
+const todayISO = () => toISO(new Date());
+function addDays(iso, n){ const d = parseISO(iso); d.setDate(d.getDate() + n); return toISO(d); }
+function diffDays(a, b){ return Math.round((parseISO(b) - parseISO(a)) / 86400000); }
+
+const IDFmt = {
+  long : new Intl.DateTimeFormat('id-ID', { weekday:'long', day:'numeric', month:'long', year:'numeric' }),
+  med  : new Intl.DateTimeFormat('id-ID', { weekday:'short', day:'numeric', month:'short' }),
+  short: new Intl.DateTimeFormat('id-ID', { day:'numeric', month:'short' }),
+  month: new Intl.DateTimeFormat('id-ID', { month:'long', year:'numeric' }),
+  time : new Intl.DateTimeFormat('id-ID', { hour:'2-digit', minute:'2-digit', hour12:false }),
+};
+function relDay(iso){
+  const n = diffDays(todayISO(), iso);
+  if (n === 0) return 'hari ini';
+  if (n === 1) return 'besok';
+  if (n === -1) return 'kemarin';
+  if (n > 1)  return `${n} hari lagi`;
+  return `${-n} hari lalu`;
+}
+
+/* ---------------------------- PENYIMPANAN ---------------------------- */
+const Store = (() => {
+  let mem = {}, live = true;
+  try { localStorage.setItem('__jeda_probe', '1'); localStorage.removeItem('__jeda_probe'); }
+  catch (e) { live = false; }
+  return {
+    get live(){ return live; },
+    get(k){ try { return live ? localStorage.getItem(k) : (mem[k] ?? null); } catch(e){ return mem[k] ?? null; } },
+    set(k,v){ try { if (live) localStorage.setItem(k,v); else mem[k]=v; } catch(e){ mem[k]=v; live=false; } }
+  };
+})();
+
+const KEY = 'jeda.state.v1';
+const THEME_KEY = 'jeda.theme';
+
+/* ---------------------------- KONSTANTA METODE ---------------------------- */
+/* Passing grade default = 80%.
+   Dasar: mastery learning (Bloom 1984; Guskey) umumnya memakai kriteria
+   ketuntasan 80-90%, dan studi simulation-based mastery learning di
+   pendidikan kesehatan paling sering menetapkan Minimum Passing Standard
+   (MPS) di 80% (Vermylen dkk. 2019; McGaghie dkk.).
+   Ambang "mastery" = 85%.
+   Dasar: Wilson dkk. (2019, Nature Communications) "The Eighty Five Percent
+   Rule for optimal learning" — akurasi ~84-85% (error ~15,87%) adalah titik
+   laju belajar maksimum. Skor >= 85% menandakan materi sudah terkonsolidasi
+   sehingga interval awal boleh lebih longgar.                                    */
+const RESEARCH = {
+  passingDefault: 80,
+  masteryDefault: 85,
+  /* Ladder kumulatif (hari sejak tes dinyatakan tuntas) — expanding retrieval.
+     Dasar: Karpicke & Roediger (2007); Storm, Bjork & Storm (2010);
+     Cepeda dkk. (2006, 2008) — celah optimal melebar seiring rentensi. */
+  ladderStandard: [1, 3, 7, 14, 30, 60],
+  ladderMastery : [3, 7, 16, 35, 70],
+  maintenance   : [90, 180],
+  remedialGapDays: 1,
+  maxRemedialAttempts: 3,
+};
+
+const PALETTE = ['#4f46e5','#0f9d6e','#e0405f','#c97a05','#1f7ae0','#8b5cf6','#0891b2','#db2777','#65a30d','#ea580c'];
+
+/* ---------------------------- STATE ---------------------------- */
+function defaultState(){
+  return {
+    v: 1,
+    settings: {
+      passingGrade: RESEARCH.passingDefault,
+      masteryGrade: RESEARCH.masteryDefault,
+      ladderStandard: RESEARCH.ladderStandard.slice(),
+      ladderMastery: RESEARCH.ladderMastery.slice(),
+      autoCompress: true,
+      reviewHour: 19, reviewMinute: 0, durationMin: 30,
+      alarmMin: 30, alarmAtTime: true,
+      weekStart: 1,
+      exportDone: false,
+    },
+    courses: [],
+    activity: [],
+    createdAt: new Date().toISOString(),
+  };
+}
+let state = load();
+
+function load(){
+  try {
+    const raw = Store.get(KEY);
+    if (!raw) return defaultState();
+    const p = JSON.parse(raw);
+    const d = defaultState();
+    return { ...d, ...p, settings: { ...d.settings, ...(p.settings||{}) }, courses: p.courses||[], activity: p.activity||[] };
+  } catch(e){ console.warn('Gagal memuat data, memakai state kosong.', e); return defaultState(); }
+}
+let saveTimer = null;
+function save(){
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    try { Store.set(KEY, JSON.stringify(state)); }
+    catch(e){ toast('bad','Gagal menyimpan','Penyimpanan browser penuh atau diblokir. Pakai menu Backup untuk ekspor JSON.'); }
+  }, 60);
+}
+function logAct(type, text, courseId){
+  state.activity.unshift({ id:uid(), type, text, courseId: courseId||null, at:new Date().toISOString() });
+  if (state.activity.length > 300) state.activity.length = 300;
+}
+
+/* ============================== MESIN METODE ============================== */
+
+function pgOf(c){ const v = Number(c.passingGrade); return (v > 0 && v <= 100) ? v : state.settings.passingGrade; }
+function mgOf(c){ const v = Number(c.masteryGrade); if (v > 0 && v <= 100) return v;
+  return Math.max(state.settings.masteryGrade, pgOf(c)); }
+
+/** Klasifikasi skor -> tingkatan ketuntasan. */
+function gradeOf(score, course){
+  const pg = pgOf(course), mg = mgOf(course);
+  if (score == null || isNaN(score)) return { tier:'ungraded', label:'Belum dinilai', cls:'b-mute' };
+  if (score >= mg) return { tier:'mastery', label:'Tuntas • Mastery', cls:'b-ok', pg, mg };
+  if (score >= pg) return { tier:'pass',    label:'Tuntas',            cls:'b-ok', pg, mg };
+  return { tier:'fail', label:'Belum tuntas', cls:'b-bad', pg, mg };
+}
+
+function ladderOf(course){
+  return (course.ladderKind === 'mastery' ? state.settings.ladderMastery : state.settings.ladderStandard)
+    .map(n => Number(n)).filter(n => n > 0).sort((a,b)=>a-b);
+}
+/** Ladder yang benar-benar dipakai course (hasil kompresi bila ada ujian dekat). */
+function activeLadder(course){
+  return (course && Array.isArray(course.cums) && course.cums.length) ? course.cums : ladderOf(course);
+}
+function rungGap(ladder, r){
+  if (r <= ladder.length) return ladder[r-1] - (ladder[r-2] ?? 0);
+  const m = r - ladder.length;
+  return RESEARCH.maintenance[m-1] ?? 180;
+}
+function totalRungs(ladder){ return ladder.length + RESEARCH.maintenance.length; }
+
+/** Bangun ulang seluruh jadwal dari tanggal dasar (baseDate). */
+function buildSchedule(course, opts = {}){
+  const keepDone = opts.keepDone !== false;
+  const done = keepDone ? (course.schedule||[]).filter(s => s.state === 'done') : [];
+  course.schedule = done;
+
+  const base = course.baseDate || course.createdAtISO || todayISO();
+  const ladder = ladderOf(course);
+
+  if (course.status === 'fail'){
+    const a = lastAttempt(course);
+    const when = addDays(a ? a.date : base, RESEARCH.remedialGapDays);
+    course.schedule.push({ id:uid(), kind:'remedial', rung:0, label:'Belajar ulang', due:when, state:'pending', offset:RESEARCH.remedialGapDays, note:'Belajar ulang materi lalu tes ulang besok.' });
+    finishBuild(course, base);
+    return;
+  }
+  if (course.status !== 'pass' && course.status !== 'mastery'){
+    finishBuild(course, base);
+    return;
+  }
+  if (!ladder.length){ finishBuild(course, base); return; }
+
+  // offset kumulatif (bisa dipadatkan bila ada tanggal ujian dekat)
+  let cums = ladder.slice();
+  const exam = course.examDate;
+  if (exam && state.settings.autoCompress){
+    const dte = diffDays(base, exam);
+    if (dte >= 3){
+      const maxCum = ladder[ladder.length-1];
+      const scale = Math.min(1, (dte - 1) / maxCum);
+      if (scale < 1){
+        let last = 0;
+        cums = ladder.map((c, i) => {
+          let v = Math.max(1, Math.round(c * scale));
+          if (v <= last) v = last + 1;
+          last = v; return v;
+        }).filter(v => v < dte);
+      }
+    }
+  }
+
+  course.cums = cums;   // ladder efektif (sudah dipadatkan bila ada ujian dekat)
+
+  const lastDoneDue = done.length ? (done[done.length-1].doneDate || done[done.length-1].due) : null;
+  const startedRungs = new Set(done.map(d => d.rung));
+
+  cums.forEach((cum, i) => {
+    const rung = i + 1;
+    if (startedRungs.has(rung)) return;
+    let due = addDays(base, cum);
+    // jangan menaruh review baru di belakang review yang sudah dikerjakan
+    if (lastDoneDue && diffDays(lastDoneDue, due) < 0) due = addDays(lastDoneDue, rungGap(cums, rung));
+    course.schedule.push({ id:uid(), kind:'review', rung, label:'R'+rung, due, state:'pending', offset:cum });
+  });
+
+  // Pemeliharaan jangka panjang (setelah ladder habis)
+  const lastRungCums = cums.length ? cums[cums.length-1] : 0;
+  let cur = addDays(base, lastRungCums);
+  RESEARCH.maintenance.forEach((gap, i) => {
+    const rung = ladder.length + 1 + i;
+    if (startedRungs.has(rung)) return;
+    cur = addDays(cur, gap);
+    if (exam && diffDays(base, cur) >= diffDays(base, exam)) return;
+    course.schedule.push({ id:uid(), kind:'review', rung, label:'P'+(i+1), due:cur, state:'pending', offset:diffDays(base,cur), maint:true });
+  });
+
+  finishBuild(course, base);
+}
+
+function finishBuild(course, base){
+  course.schedule = (course.schedule||[]).filter(s => s.kind !== 'exam');
+  course.schedule.sort((a,b) => a.due === b.due ? (a.rung-b.rung) : (a.due < b.due ? -1 : 1));
+  if (course.examDate && diffDays(base, course.examDate) >= 0){
+    course.schedule.push({ id:uid(), kind:'exam', rung:-1, label:'UJIAN', due:course.examDate, state:'pending', offset:diffDays(base, course.examDate) });
+    course.schedule.sort((a,b) => a.due === b.due ? (a.rung-b.rung) : (a.due < b.due ? -1 : 1));
+  }
+}
+
+/** Semua item review yang sudah selesai, untuk hitung progres. */
+const doneItems  = c => (c.schedule||[]).filter(s => s.kind === 'review' && s.state === 'done');
+const pendItems  = c => (c.schedule||[]).filter(s => s.state === 'pending' && (s.kind === 'review' || s.kind === 'remedial'));
+const nextItem   = c => pendItems(c).sort((a,b)=>a.due<b.due?-1:1)[0] || null;
+const lastAttempt= c => (c.attempts||[]).slice().sort((a,b)=>a.date<b.date?1:-1)[0] || null;
+function courseProgress(c){
+  const ladder = activeLadder(c);
+  const planned = new Set((c.schedule||[])
+    .filter(s => s.kind === 'review' && !s.maint && s.rung <= ladder.length)
+    .map(s => s.rung));
+  const total = planned.size || ladder.length || 1;
+  const doneRungs = new Set(doneItems(c).map(d => d.rung).filter(r => planned.has(r)));
+  return { done: doneRungs.size, total, pct: Math.round(doneRungs.size / total * 100) };
+}
+function avgScore(c){
+  const a = (c.attempts||[]).filter(x => typeof x.score === 'number');
+  if (!a.length) return null;
+  return round1(a.reduce((s,x)=>s+x.score,0)/a.length);
+}
+function weakTopics(c){
+  const pg = pgOf(c);
+  return (c.topics||[]).filter(t => typeof t.score === 'number' && t.score < pg);
+}
+
+/* ============================== INPUT SKOR ============================== */
+
+/**
+ * Catat hasil tes.
+ * @returns {{course, tier, verdict}} ringkasan keputusan untuk ditampilkan.
+ */
+function recordScore(course, { date, score, topicScores }){
+  date = date || todayISO();
+  score = clamp(Math.round(Number(score) * 10) / 10, 0, 100);
+
+  const attempt = {
+    id: uid(), date, score,
+    topicScores: topicScores || {},
+    attemptNo: (course.attempts||[]).length + 1,
+  };
+  course.attempts = course.attempts || [];
+  // arsipkan siklus lama
+  if (course.schedule && course.schedule.some(s => s.state === 'done')){
+    course.history = course.history || [];
+    course.history.push({ cycleEnd: date, ladderKind: course.ladderKind, score: course.lastScore, schedule: course.schedule });
+  }
+  course.attempts.push(attempt);
+
+  // simpan skor per topik (yang diisi)
+  Object.entries(attempt.topicScores).forEach(([tid, sc]) => {
+    const t = (course.topics||[]).find(x => x.id === tid);
+    if (t && typeof sc === 'number' && !isNaN(sc)) t.score = clamp(sc, 0, 100);
+  });
+
+  const g = gradeOf(score, course);
+  course.cycle = (Number(course.cycle) || 0) + 1;   // siklus belajar ke-n (untuk UID .ics yang stabil)
+  course.lastScore = score;
+  course.lastScoreDate = date;
+  course.status = g.tier;                 // 'mastery' | 'pass' | 'fail'
+  course.ladderKind = g.tier === 'mastery' ? 'mastery' : 'standard';
+  course.baseDate = date;
+  course.schedule = [];
+  buildSchedule(course, { keepDone:false });
+
+  logAct(g.tier === 'fail' ? 'fail' : 'pass',
+    `${course.name}: skor ${score} → ${g.label}`, course.id);
+  save();
+  return { course, tier: g.tier, grade: g, attempt };
+}
+
+/** Selesaikan satu sesi review dengan penilaian diri. */
+function completeItem(course, itemId, rating){
+  const idx = (course.schedule||[]).findIndex(s => s.id === itemId);
+  if (idx < 0) return null;
+  const item = course.schedule[idx];
+  const doneDate = todayISO();
+  item.state = 'done'; item.rating = rating; item.doneDate = doneDate;
+
+  if (item.kind === 'remedial'){ save(); return item; }
+
+  const ladder = activeLadder(course);
+  const total = totalRungs(ladder);
+  const nextRung = rating === 'again' ? 1 : (rating === 'hard' ? item.rung : item.rung + 1);
+  let firstGap;
+  if (rating === 'again') firstGap = RESEARCH.remedialGapDays;
+  else {
+    const g = rungGap(ladder, Math.min(nextRung, total));
+    firstGap = rating === 'hard' ? Math.max(1, Math.round(g * 0.5)) : g;
+  }
+
+  const tail = course.schedule.slice(idx + 1).filter(s => s.state === 'done');
+  course.schedule = course.schedule.slice(0, idx + 1).concat(tail);
+
+  // 'again' = gagal retrieval -> seluruh ladder diulang dari tahap 1,
+  // jadi rung yang sebelumnya sudah selesai tidak boleh memblokir penjadwalan ulang.
+  const existing = rating === 'again' ? new Set()
+    : new Set(course.schedule.filter(s => s.state === 'done').map(s => s.rung));
+  let r = nextRung, cur = doneDate, isFirst = true;
+  while (r <= total){
+    const gap = isFirst ? firstGap : rungGap(ladder, r);
+    cur = addDays(cur, gap);
+    // sesi pemeliharaan jangka panjang tidak berguna bila sudah lewat tanggal ujian
+    if (r > ladder.length && course.examDate && cur >= course.examDate) break;
+    if (isFirst || !existing.has(r)){
+      course.schedule.push({
+        id: uid(), kind:'review', rung: r,
+        label: r <= ladder.length ? 'R'+r : 'P'+(r - ladder.length),
+        maint: r > ladder.length,
+        due: cur, state:'pending',
+        offset: course.baseDate ? diffDays(course.baseDate, cur) : null,
+      });
+    }
+    isFirst = false;
+    r++;
+  }
+  finishBuild(course, course.baseDate || doneDate);
+  logAct('review', `${course.name}: ${item.label} selesai (${rateLabel(rating)})`, course.id);
+  save();
+  return item;
+}
+const rateLabel = r => ({ easy:'Lancar', hard:'Agak sulit', again:'Lupa' }[r] || r);
+
+function skipItem(course, itemId){
+  const it = (course.schedule||[]).find(s => s.id === itemId);
+  if (!it) return;
+  it.state = 'skipped';
+  logAct('skip', `${course.name}: ${it.label} dilewati`, course.id);
+  save();
+}
+function undoItem(course, itemId){
+  const it = (course.schedule||[]).find(s => s.id === itemId);
+  if (!it) return;
+  it.state = 'pending'; delete it.rating; delete it.doneDate;
+  save();
+}
+
+/* ============================== AGENDA ============================== */
+function allEvents(){
+  const out = [];
+  state.courses.forEach(c => (c.schedule||[]).forEach(s => out.push({ ...s, course:c })));
+  return out;
+}
+function dueOn(iso){ return allEvents().filter(e => e.due === iso); }
+function dueToday(){ const t = todayISO(); return allEvents().filter(e => e.due === t && e.state === 'pending'); }
+/** Hanya item yang benar-benar perlu dikerjakan (penanda ujian dikeluarkan). */
+const actionable = list => (list||[]).filter(e => e.kind !== 'exam');
+function overdue(){ const t = todayISO(); return allEvents().filter(e => e.state === 'pending' && e.due < t && e.kind !== 'exam')
+  .sort((a,b)=>a.due<b.due?-1:1); }
+function upcoming(days){
+  const t = todayISO(), end = addDays(t, days);
+  return allEvents().filter(e => e.state === 'pending' && e.due >= t && e.due <= end).sort((a,b)=>a.due<b.due?-1:1);
+}
+function byId(id){ return state.courses.find(c => c.id === id); }
+
+/* ============================== EXPORT .ICS ============================== */
+function icsText(s){
+  return String(s ?? '').replace(/\\/g,'\\\\').replace(/;/g,'\\;').replace(/,/g,'\\,').replace(/\r?\n/g,'\\n');
+}
+const _enc = (typeof TextEncoder !== 'undefined') ? new TextEncoder() : null;
+const byteLen = s => _enc ? _enc.encode(s).length : s.length;
+/** RFC 5545: baris maksimum 75 OKTET, kelanjutan diawali satu spasi. */
+function foldLine(line){
+  const LIMIT = 74;
+  const out = []; let cur = '';
+  for (const ch of line){
+    if (byteLen(cur + ch) > LIMIT){ out.push(cur); cur = ' ' + ch; }
+    else cur += ch;
+  }
+  out.push(cur);
+  return out.join('\r\n');
+}
+function utcStamp(isoDate, h, m){
+  const d = parseISO(isoDate); d.setHours(h||0, m||0, 0, 0);
+  return d.toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,'');
+}
+/** UID yang stabil antar-export dalam satu siklus belajar,
+    supaya import ulang memperbarui event lama, bukan menumpuk duplikat. */
+function stableUid(c, ev){
+  return `${c.id}-c${c.cycle||1}-${ev.kind}${ev.rung}`;
+}
+function nowStamp(){ return new Date().toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,''); }
+
+function eventDescription(c, ev){
+  const lines = [];
+  if (ev.kind === 'exam'){
+    lines.push(`UJIAN ${c.name}`);
+    if (c.lecturer) lines.push(`Dosen: ${c.lecturer}`);
+    lines.push('');
+    lines.push('Tips berbasis riset: jangan belajar sistem kebut semalam.');
+    lines.push('Review ringan semua topik + tes diri (retrieval practice) jauh lebih efektif.');
+  } else if (ev.kind === 'remedial'){
+    lines.push(`BELAJAR ULANG - ${c.name}`);
+    const a = lastAttempt(c);
+    lines.push(`Skor terakhir: ${a ? a.score : '-'} (passing grade ${pgOf(c)}%)`);
+    lines.push('Status: belum tuntas, jadi belum masuk jadwal spaced repetition.');
+    lines.push('');
+    lines.push('Rencana hari ini:');
+    lines.push('1. Pelajari ulang materi (bukan sekadar baca ulang — kerjakan soal).');
+    const w = weakTopics(c);
+    if (w.length) lines.push(`2. Prioritaskan topik lemah: ${w.map(t=>t.name).join(', ')}.`);
+    lines.push(`${w.length?3:2}. Setelah siap, buka Jeda dan masukkan skor tes ulang.`);
+  } else {
+    lines.push(`SPACED REPETITION - ${c.name}`);
+    lines.push(`Tahap ${ev.label}${ev.maint ? ' (pemeliharaan jangka panjang)' : ''} dari ladder ${ladderOf(c).length} tahap`);
+    if (c.lastScore != null) lines.push(`Skor tes terakhir: ${c.lastScore}% (tuntas, PG ${pgOf(c)}%)`);
+    lines.push('');
+    lines.push('Cara sesi ini (retrieval practice, bukan baca ulang):');
+    lines.push('1. Tutup catatan, tulis/ucapkan semua yang kamu ingat dulu.');
+    lines.push('2. Baru buka catatan, tandai yang keliru atau hilang.');
+    lines.push('3. Ulangi bagian yang salah sekali lagi tanpa melihat.');
+    const w = weakTopics(c);
+    if (w.length){
+      lines.push('');
+      lines.push('Topik yang masih di bawah passing grade — prioritaskan:');
+      w.forEach(t => lines.push(`  • ${t.name} (${t.score}%)`));
+    }
+    const tp = (c.topics||[]).filter(t=>typeof t.score==='number' && t.score>=pgOf(c));
+    if (tp.length){
+      lines.push('');
+      lines.push('Topik sudah tuntas: ' + tp.map(t=>t.name).join(', '));
+    }
+    lines.push('');
+    lines.push('Selesai? Buka Jeda lalu nilai sesi ini: Lancar / Agak sulit / Lupa.');
+  }
+  if (c.lecturer) lines.push('', `Dosen: ${c.lecturer}`);
+  return lines.join('\n');
+}
+
+/**
+ * Bangun string kalender .ics
+ * @param {Array} courses daftar mata kuliah (kosong = semua)
+ * @param {Object} o {includeDone, fromISO}
+ */
+function buildICS(courses, o = {}){
+  const st = state.settings;
+  const L = [];
+  L.push('BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Jeda//Spaced Repetition Scheduler 1.0//ID',
+         'CALSCALE:GREGORIAN','METHOD:PUBLISH','X-WR-CALNAME:Jeda - Jadwal Belajar',
+         'X-WR-CALDESC:Jadwal review spaced repetition yang dihitung dari skor tes tiap mata kuliah.');
+  const dtstamp = nowStamp();
+  const from = o.fromISO || todayISO();
+  let n = 0;
+
+  (courses && courses.length ? courses : state.courses).forEach(c => {
+    (c.schedule||[]).forEach(ev => {
+      if (!o.includeDone && ev.state === 'done') return;
+      if (ev.state === 'skipped') return;
+      if (ev.due < from && !(o.includeDone && ev.state === 'done')) return;
+      const icon = ev.kind === 'exam' ? 'UJIAN' : ev.kind === 'remedial' ? 'BELAJAR ULANG' : 'REVIEW ' + ev.label;
+      const summary = `${icon}: ${c.name}`;
+      const start = utcStamp(ev.due, st.reviewHour, st.reviewMinute);
+      const endD  = parseISO(ev.due); endD.setHours(st.reviewHour, st.reviewMinute + (ev.kind==='exam'?60:st.durationMin), 0, 0);
+      const end   = endD.toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,'');
+      L.push('BEGIN:VEVENT');
+      L.push('UID:' + stableUid(c, ev) + '@jeda.local');
+      L.push('DTSTAMP:' + dtstamp);
+      L.push('DTSTART:' + start);
+      L.push('DTEND:' + end);
+      L.push('SUMMARY:' + icsText(summary));
+      L.push('DESCRIPTION:' + icsText(eventDescription(c, ev)));
+      L.push('LOCATION:' + icsText(c.location || ''));
+      L.push('CATEGORIES:' + icsText(ev.kind === 'exam' ? 'Ujian' : ev.kind === 'remedial' ? 'Remedial' : 'Spaced Repetition'));
+      L.push('STATUS:CONFIRMED');
+      L.push('TRANSP:OPAQUE');
+      if (ev.kind !== 'exam' && st.alarmMin >= 0){
+        L.push('BEGIN:VALARM','ACTION:DISPLAY','DESCRIPTION:' + icsText('Sebentar lagi: ' + summary),
+               'TRIGGER:-PT' + Math.max(0, st.alarmMin) + 'M','END:VALARM');
+      }
+      if (ev.kind !== 'exam' && st.alarmAtTime){
+        L.push('BEGIN:VALARM','ACTION:DISPLAY','DESCRIPTION:' + icsText('Waktunya: ' + summary),
+               'TRIGGER:PT0M','END:VALARM');
+      }
+      if (ev.kind === 'exam'){
+        L.push('BEGIN:VALARM','ACTION:DISPLAY','DESCRIPTION:' + icsText('H-1 ujian: ' + c.name),
+               'TRIGGER:-P1D','END:VALARM');
+      }
+      L.push('END:VEVENT');
+      n++;
+    });
+  });
+  L.push('END:VCALENDAR');
+  return { text: L.map(foldLine).join('\r\n'), count: n };
+}
+
+function download(filename, text, mime){
+  const blob = new Blob([text], { type: (mime||'text/plain') + ';charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; document.body.appendChild(a); a.click();
+  setTimeout(() => { try { if (URL.revokeObjectURL) URL.revokeObjectURL(url); } catch(e){} a.remove(); }, 400);
+}
+function exportICS(courses, opts){
+  const { text, count } = buildICS(courses, opts);
+  if (!count){ toast('warn','Tidak ada jadwal','Belum ada event yang bisa diekspor. Masukkan skor tes dulu agar jadwal terbentuk.'); return 0; }
+  const name = (courses && courses.length === 1)
+    ? `jeda-${slug(courses[0].name)}.ics`
+    : `jeda-semua-matkul.ics`;
+  download(name, text, 'text/calendar');
+  toast('ok','File kalender diunduh', `${count} event. Buka file .ics lalu pilih "Simpan ke kalender" (Google/Apple/Outlook Calendar).`);
+  return count;
+}
+const slug = s => String(s).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,40) || 'matkul';
+
+function exportJSON(){
+  download(`jeda-backup-${todayISO()}.json`, JSON.stringify(state, null, 2), 'application/json');
+  toast('ok','Backup diunduh','Simpan file JSON ini. Bisa dipulihkan lewat Pengaturan → Pulihkan data.');
+}
+function importJSON(file){
+  const rd = new FileReader();
+  rd.onload = () => {
+    try {
+      const p = JSON.parse(rd.result);
+      if (!p || !Array.isArray(p.courses)) throw new Error('format tidak dikenali');
+      state = { ...defaultState(), ...p, settings:{ ...defaultState().settings, ...(p.settings||{}) } };
+      save(); renderAll();
+      toast('ok','Data dipulihkan', `${state.courses.length} mata kuliah dimuat.`);
+    } catch(e){ toast('bad','Gagal memulihkan','File bukan backup Jeda yang valid.'); }
+  };
+  rd.readAsText(file);
+}
+
+/* ============================== IKON ============================== */
+const IC = {
+  today:'<path d="M3 5h18M3 10h18M5 5v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V5"/><path d="M9 15l2 2 4-4"/>',
+  book:'<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>',
+  cal:'<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
+  flask:'<path d="M9 3h6M10 3v6l-5.5 9A2 2 0 0 0 6.2 21h11.6a2 2 0 0 0 1.7-3L14 9V3"/>',
+  gear:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1A1.7 1.7 0 0 0 9 19.4a1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
+  plus:'<path d="M12 5v14M5 12h14"/>',
+  check:'<path d="M20 6L9 17l-5-5"/>',
+  x:'<path d="M18 6L6 18M6 6l12 12"/>',
+  alert:'<path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/>',
+  clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  down:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5M12 15V3"/>',
+  left:'<path d="M15 18l-6-6 6-6"/>',
+  right:'<path d="M9 18l6-6-6-6"/>',
+  edit:'<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.1 2.1 0 0 1 3 3L12 15l-4 1 1-4z"/>',
+  trash:'<path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>',
+  play:'<path d="M5 3l14 9-14 9V3z"/>',
+  brain:'<path d="M12 5a3 3 0 0 0-6 0v1a3 3 0 0 0-2 5 3 3 0 0 0 2 5v1a3 3 0 0 0 6 0z"/><path d="M12 5a3 3 0 0 1 6 0v1a3 3 0 0 1 2 5 3 3 0 0 1-2 5v1a3 3 0 0 1-6 0z"/>',
+  target:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.4"/>',
+  spark:'<path d="M12 3l1.9 5.6L19.5 10l-5.6 1.9L12 17.5l-1.9-5.6L4.5 10l5.6-1.4z"/>',
+  info:'<circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/>',
+  refresh:'<path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 21v-5h5"/>',
+  chevD:'<path d="M6 9l6 6 6-6"/>',
+};
+const icon = (n, w) => `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="${w||1.9}" stroke-linecap="round" stroke-linejoin="round">${IC[n]||''}</svg>`;
+
+/* ============================== TOAST ============================== */
+function toast(kind, title, msg){
+  const el = document.createElement('div');
+  el.className = 'toast ' + (kind === 'ok' ? 'ok' : kind === 'bad' ? 'bad' : kind === 'warn' ? 'warn' : '');
+  const ic = kind === 'ok' ? 'check' : kind === 'bad' ? 'alert' : kind === 'warn' ? 'alert' : 'info';
+  el.innerHTML = `<span style="color:var(--${kind==='ok'?'ok':kind==='bad'?'bad':kind==='warn'?'warn':'brand'})">${icon(ic,2.3)}</span><div><b>${esc(title)}</b>${msg?`<span>${esc(msg)}</span>`:''}</div>`;
+  $('#toasts').appendChild(el);
+  setTimeout(() => { el.style.transition = 'opacity .3s, transform .3s'; el.style.opacity = '0'; el.style.transform = 'translateX(20px)';
+    setTimeout(() => el.remove(), 320); }, 4600);
+}
+
+/* ============================== MODAL ============================== */
+let modalCleanup = null;
+function openModal({ title, sub, body, foot, wide, onMount }){
+  closeModal();
+  const root = $('#modalRoot');
+  root.innerHTML = `<div class="modal-bg" data-close></div>
+    <div class="modal ${wide?'wide':''}" role="dialog" aria-modal="true">
+      <div class="modal-head"><div><h3>${title}</h3>${sub?`<div class="sub">${sub}</div>`:''}</div>
+        <button class="x" data-close aria-label="Tutup">${icon('x',2.2)}</button></div>
+      <div class="modal-body">${body}</div>
+      ${foot?`<div class="modal-foot">${foot}</div>`:''}
+    </div>`;
+  root.classList.add('open');
+  document.body.style.overflow = 'hidden';
+  root.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', closeModal));
+  root.addEventListener('keydown', onKey);
+  if (onMount) onMount(root);
+  const f = root.querySelector('input,select,textarea,button.btn-primary');
+  if (f && f.tagName !== 'BUTTON') setTimeout(() => f.focus(), 60);
+}
+function onKey(e){ if (e.key === 'Escape') closeModal(); }
+function closeModal(){
+  const root = $('#modalRoot');
+  if (!root.classList.contains('open')) return;
+  root.classList.remove('open'); root.innerHTML = '';
+  document.body.style.overflow = '';
+  if (modalCleanup){ modalCleanup(); modalCleanup = null; }
+}
+function confirmModal({ title, text, okLabel='Hapus', danger=true, onOk }){
+  openModal({ title, body:`<p style="font-size:13.5px;color:var(--ink-2);line-height:1.6">${text}</p>`,
+    foot:`<button class="btn" data-close>Batal</button><button class="btn ${danger?'btn-bad':'btn-primary'}" id="cfmOk">${esc(okLabel)}</button>`,
+    onMount(r){ r.querySelector('#cfmOk').onclick = () => { closeModal(); onOk(); }; } });
+}
+
+/* ============================== ROUTER ============================== */
+const route = { view:'dash', month:new Date(), selDay:todayISO(), filter:'all', q:'' };
+const VIEWS = [
+  { id:'dash',     label:'Hari Ini',      icon:'today', sub:'Ringkasan review yang jatuh tempo' },
+  { id:'courses',  label:'Mata Kuliah',   icon:'book',  sub:'Kelola matkul, topik, dan skor tes' },
+  { id:'calendar', label:'Kalender',      icon:'cal',   sub:'Seluruh jadwal spaced repetition' },
+  { id:'method',   label:'Metode & Riset',icon:'flask', sub:'Dasar ilmiah passing grade dan interval' },
+  { id:'settings', label:'Pengaturan',    icon:'gear',  sub:'Ambang nilai, jam review, dan data' },
+];
+function go(view){ route.view = view; closeModal(); renderAll();
+  try { window.scrollTo({ top:0, behavior:'smooth' }); } catch(e){ try { window.scrollTo(0,0); } catch(_){} } }
+
+function renderNav(){
+  const due = actionable(dueToday()).length + overdue().length;
+  $('#nav').innerHTML = `<div class="nav-label">Menu</div>` + VIEWS.map(v =>
+    `<button class="nav-btn ${route.view===v.id?'active':''}" data-go="${v.id}">${icon(v.icon)}<span>${v.label}</span>${
+      v.id==='dash' && due ? `<span class="nav-badge">${due}</span>`:''}</button>`).join('');
+  $('#mobnav').innerHTML = VIEWS.map(v =>
+    `<button data-go="${v.id}" class="${route.view===v.id?'active':''}">${icon(v.icon)}<span>${v.label.replace(' & Riset','')}</span>${
+      v.id==='dash' && due ? `<span class="mbadge">${due}</span>`:''}</button>`).join('');
+  $$('[data-go]').forEach(b => b.onclick = () => go(b.dataset.go));
+  const v = VIEWS.find(x => x.id === route.view) || VIEWS[0];
+  $('#pageTitle').textContent = v.label;
+  $('#pageSub').textContent = v.sub;
+}
+
+function renderActions(){
+  const el = $('#pageActions');
+  if (route.view === 'courses'){
+    el.innerHTML = `<button class="btn" data-act="export-ics-all">${icon('cal')}Export Kalender</button>
+      <button class="btn btn-primary" data-act="new-course">${icon('plus',2.4)}Tambah Matkul</button>`;
+  } else if (route.view === 'calendar'){
+    el.innerHTML = `<button class="btn btn-primary" data-act="export-ics-all">${icon('down')}Export .ics</button>`;
+  } else if (route.view === 'dash'){
+    el.innerHTML = `<button class="btn" data-act="export-ics-all">${icon('cal')}Export Kalender</button>
+      <button class="btn btn-primary" data-act="new-course">${icon('plus',2.4)}Tambah Matkul</button>`;
+  } else el.innerHTML = '';
+  bindActions(el);
+}
+function bindActions(root){
+  $$('[data-act]', root || document).forEach(b => {
+    if (b.__bound) return; b.__bound = true;
+    b.addEventListener('click', () => handleAct(b.dataset.act, b.dataset.id, b));
+  });
+}
+function handleAct(act, id, btn){
+  const c = id ? byId(id) : null;
+  switch(act){
+    case 'new-course':    courseModal(); break;
+    case 'edit-course':   courseModal(c); break;
+    case 'del-course':    confirmModal({ title:'Hapus mata kuliah?', text:`<b>${esc(c.name)}</b> beserta seluruh riwayat skor dan jadwalnya akan dihapus permanen.`, onOk(){
+      state.courses = state.courses.filter(x => x.id !== c.id); logAct('del', `Mata kuliah dihapus: ${c.name}`); save(); renderAll(); toast('ok','Dihapus', c.name); }}); break;
+    case 'score':         scoreModal(c); break;
+    case 'review':        reviewModal(c, id, btn.dataset.item); break;
+    case 'open-course':   courseDetail(c); break;
+    case 'export-ics-one':exportICS([c]); break;
+    case 'export-ics-all':exportICS(null); break;
+    case 'toggle-theme':  toggleTheme(); break;
+    case 'install-app':   installApp(); break;
+    case 'demo':          seedDemo(); break;
+    case 'wipe':          confirmModal({ title:'Kosongkan semua data?', text:'Seluruh mata kuliah, skor, dan jadwal akan dihapus. Pastikan kamu sudah ekspor backup.', okLabel:'Hapus semua', onOk(){
+      state = defaultState(); save(); renderAll(); toast('ok','Data dikosongkan'); }}); break;
+    case 'export-json':   exportJSON(); break;
+    case 'import-json':   $('#importFile').click(); break;
+    case 'rebuild':       state.courses.forEach(c => buildSchedule(c)); save(); renderAll(); toast('ok','Jadwal dihitung ulang','Semua tahap yang belum dikerjakan diperbarui mengikuti pengaturan terbaru.'); break;
+    case 'skip':          skipItem(c, btn.dataset.item); renderAll(); toast('warn','Dilewati','Tahap ini ditandai dilewati. Jadwal berikutnya tetap berjalan.'); break;
+  }
+}
+
+/* ============================== DASHBOARD ============================== */
+function renderDash(){
+  const today = todayISO();
+  const dueT = actionable(dueToday()), over = overdue(), up = upcoming(7);
+  const examsToday = dueToday().filter(e => e.kind === 'exam');
+  const graded = state.courses.filter(c => c.lastScore != null);
+  const failed = state.courses.filter(c => c.status === 'fail');
+  const avg = graded.length ? round1(graded.reduce((s,c)=>s+c.lastScore,0)/graded.length) : null;
+  const totalR = allEvents().filter(e=>e.kind==='review');
+  const doneR  = totalR.filter(e=>e.state==='done').length;
+
+  let h = '';
+
+  if (!Store.live)
+    h += `<div class="banner warn">${icon('alert',2.2)}<div><b>Penyimpanan browser tidak aktif</b>
+      <span>Data hanya tersimpan selama tab ini terbuka. Pakai Pengaturan → Backup JSON agar tidak hilang.</span></div></div>`;
+
+  if (!state.courses.length){
+    h += `<div class="card"><div class="empty">${icon('book',1.6)}
+      <h4>Belum ada mata kuliah</h4>
+      <p class="small" style="max-width:420px;margin:0 auto 16px">Tambahkan mata kuliah beserta topik/bab-nya, lalu masukkan skor tes.
+      Jeda otomatis memutuskan: <b>tuntas</b> → masuk jadwal spaced repetition, <b>belum tuntas</b> → belajar ulang besok.</p>
+      <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+        <button class="btn btn-primary" data-act="new-course">${icon('plus',2.4)}Tambah Mata Kuliah</button>
+        <button class="btn" data-act="demo">${icon('spark')}Coba dengan data contoh</button>
+      </div></div></div>`;
+    $('#view-dash').innerHTML = h; bindActions(); return;
+  }
+
+  if (examsToday.length)
+    h += `<div class="banner warn">${icon('target',2.2)}<div><b>Ujian hari ini: ${esc(examsToday.map(e=>e.course.name).join(', '))}</b>
+      <span>Jangan belajar sistem kebut. Lakukan satu putaran retrieval ringan: tulis dari ingatan semua rumus/definisi inti tiap topik, lalu cek yang keliru.</span></div></div>`;
+
+  if (over.length)
+    h += `<div class="banner bad">${icon('alert',2.2)}<div><b>${over.length} review terlambat</b>
+      <span>Ada sesi yang belum dikerjakan sejak ${IDFmt.short.format(parseISO(over[0].due))}. Segera kerjakan — jeda yang makin panjang membuat retrieval makin sulit.</span></div></div>`;
+  else if (failed.length)
+    h += `<div class="banner warn">${icon('alert',2.2)}<div><b>${failed.length} matkul belum tuntas</b>
+      <span>${esc(failed.map(c=>c.name).join(', '))} — belajar ulang besok lalu tes ulang. Jadwal spaced repetition baru terbentuk setelah skor mencapai passing grade.</span></div></div>`;
+  else if (dueT.length)
+    h += `<div class="banner ok">${icon('check',2.4)}<div><b>${dueT.length} sesi review hari ini</b>
+      <span>Kerjakan dengan retrieval practice: ingat dulu tanpa melihat catatan, baru cek. Lebih efektif daripada baca ulang.</span></div></div>`;
+  else
+    h += `<div class="banner info">${icon('info',2)}<div><b>Tidak ada review hari ini</b>
+      <span>${up.length ? `Sesi berikutnya: ${esc(up[0].course.name)} — ${relDay(up[0].due)}.` : 'Semua jadwal sudah dikerjakan. Tambahkan matkul atau skor tes baru.'}</span></div></div>`;
+
+  h += `<div class="grid g4" style="margin-bottom:16px">
+    ${statCard('Review hari ini', dueT.length, dueT.length ? 'perlu dikerjakan' : 'jadwal kosong', dueT.length?'bad':'ok')}
+    ${statCard('Terlambat', over.length, over.length ? `sejak ${relDay(over[0].due)}` : 'aman', over.length?'warn':'ok')}
+    ${statCard('Matkul aktif', state.courses.length, `${graded.length} sudah dinilai • ${failed.length} belum tuntas`, 'brand')}
+    ${statCard('Rata-rata skor', avg==null?'—':avg+'%', avg==null?'belum ada tes':`passing grade ${state.settings.passingGrade}%`, avg==null?'mute':(avg>=state.settings.masteryGrade?'ok':avg>=state.settings.passingGrade?'ok':'bad'))}
+  </div>`;
+
+  h += `<div class="split">`;
+  /* ---- kolom kiri ---- */
+  h += `<div style="display:flex;flex-direction:column;gap:16px">`;
+  const work = [...over, ...dueT, ...examsToday].sort((a,b)=>a.due<b.due?-1:1);
+  h += `<div class="card"><div class="card-head"><h3>${icon('target',2)}</h3><h3>Perlu dikerjakan</h3>
+    <span class="hint">${work.length} sesi</span></div>`;
+  h += work.length ? `<div class="rlist">${work.map(e => eventRow(e, true)).join('')}</div>`
+    : `<div class="empty" style="padding:34px 20px">${icon('check',1.8)}<h4>Semua beres</h4><p class="small">Tidak ada review yang jatuh tempo hari ini.</p></div>`;
+  h += `</div>`;
+
+  h += `<div class="card"><div class="card-head"><h3>${icon('cal',2)}</h3><h3>7 hari ke depan</h3>
+    <div class="right"><button class="btn btn-sm" data-go="calendar">Buka kalender</button></div></div>`;
+  h += up.length ? `<div class="rlist">${up.slice(0,12).map(e => eventRow(e, false)).join('')}</div>`
+    : `<div class="empty" style="padding:30px 20px"><p class="small">Tidak ada jadwal dalam 7 hari ke depan.</p></div>`;
+  h += `</div>`;
+  h += `</div>`;
+
+  /* ---- kolom kanan ---- */
+  h += `<div style="display:flex;flex-direction:column;gap:16px">`;
+  h += `<div class="card card-pad"><h3 style="font-size:14.5px;margin-bottom:12px">Progres keseluruhan</h3>
+    <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:7px">
+      <span style="font-size:26px;font-weight:800;letter-spacing:-1px">${doneR}</span>
+      <span class="muted small">/ ${totalR.length} sesi review selesai</span></div>
+    <div class="progress ${doneR?'ok':''}"><i style="width:${totalR.length?Math.round(doneR/totalR.length*100):0}%"></i></div>
+    <div class="hr"></div>
+    ${miniRow('Tuntas (masuk jadwal)', state.courses.filter(c=>c.status==='pass'||c.status==='mastery').length, 'ok')}
+    ${miniRow('Belum tuntas (belajar ulang)', failed.length, 'bad')}
+    ${miniRow('Belum dinilai', state.courses.filter(c=>c.status!=='pass'&&c.status!=='mastery'&&c.status!=='fail').length, 'mute')}
+  </div>`;
+
+  h += `<div class="card"><div class="card-head"><h3>${icon('clock',2)}</h3><h3>Aktivitas terakhir</h3></div>
+    <div style="padding:6px 0">`;
+  h += state.activity.length ? state.activity.slice(0,7).map(a => {
+    const col = a.type==='fail'?'var(--bad)':a.type==='pass'?'var(--ok)':a.type==='review'?'var(--brand)':'var(--ink-3)';
+    return `<div style="display:flex;gap:10px;padding:8px 18px;align-items:flex-start">
+      <span class="dot" style="background:${col};margin-top:6px"></span>
+      <div style="flex:1;min-width:0"><div class="small" style="line-height:1.4">${esc(a.text)}</div>
+      <div class="xsmall muted">${new Date(a.at).toLocaleString('id-ID',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</div></div></div>`;
+  }).join('') : `<div class="empty" style="padding:26px 20px"><p class="small">Belum ada aktivitas.</p></div>`;
+  h += `</div></div>`;
+
+  h += `<div class="card card-pad" style="background:var(--brand-soft);border-color:transparent">
+    <h3 style="font-size:14px;color:var(--brand-ink);margin-bottom:6px">${icon('info',2)} Kenapa ${state.settings.passingGrade}%?</h3>
+    <p class="small" style="color:var(--brand-ink);opacity:.85;line-height:1.55">
+    Ambang ketuntasan mengikuti konsensus <i>mastery learning</i> (Bloom 1984; McGaghie) yang memakai kriteria 80–90%,
+    dan batas 85% dari "Eighty Five Percent Rule" (Wilson dkk., 2019). Skor ≥85% dapat ladder interval yang lebih longgar.</p>
+    <button class="btn btn-sm" style="margin-top:10px" data-go="method">Baca dasar risetnya</button></div>`;
+
+  h += `</div></div>`;
+  $('#view-dash').innerHTML = h;
+  bindActions(); bindEventRows();
+}
+function statCard(k, v, n, tone){
+  const col = tone==='ok'?'var(--ok)':tone==='bad'?'var(--bad)':tone==='warn'?'var(--warn)':tone==='brand'?'var(--brand)':'var(--ink-2)';
+  return `<div class="card stat"><div class="k">${k}</div><div class="v mono" style="color:${col}">${v}</div><div class="n">${n}</div></div>`;
+}
+function miniRow(k, v, tone){
+  const col = tone==='ok'?'var(--ok)':tone==='bad'?'var(--bad)':'var(--ink-3)';
+  return `<div class="kv" style="padding:3px 0"><span class="k">${k}</span><span class="v" style="color:${col}">${v}</span></div>`;
+}
+function eventRow(e, big){
+  const c = e.course;
+  const isOver = e.due < todayISO() && e.state === 'pending' && e.kind !== 'exam';
+  const done = e.state === 'done';
+  const tone = e.kind === 'exam' ? 'var(--warn)' : e.kind === 'remedial' ? 'var(--bad)' : c.color || 'var(--brand)';
+  const badge = e.kind === 'exam' ? `<span class="badge b-warn">${icon('target')}UJIAN</span>`
+    : e.kind === 'remedial' ? `<span class="badge b-bad">${icon('refresh')}Belajar ulang + tes</span>`
+    : done ? `<span class="badge b-mute">${icon('check')}Selesai${e.rating?' • '+rateLabel(e.rating):''}</span>`
+    : isOver ? `<span class="badge b-bad">Terlambat ${-diffDays(e.due, todayISO())} hr</span>`
+    : `<span class="badge b-brand">Tahap ${e.label}</span>`;
+  const act = done ? `<button class="btn btn-sm" data-act="review" data-id="${c.id}" data-item="${e.id}">Lihat</button>`
+    : e.kind === 'exam' ? `<button class="btn btn-sm" data-act="export-ics-one" data-id="${c.id}">Export</button>`
+    : e.kind === 'remedial' ? `<button class="btn btn-sm btn-bad" data-act="score" data-id="${c.id}">Isi skor tes ulang</button>`
+    : `<button class="btn btn-sm btn-primary" data-act="review" data-id="${c.id}" data-item="${e.id}">${icon('play')}Mulai sesi</button>`;
+  return `<div class="ritem ${done?'done':''} ${isOver?'overdue':''}" data-course="${c.id}">
+    <div class="bar" style="background:${tone}"></div>
+    ${e.kind==='review'&&!done?`<div class="stepnum">${e.label.replace(/[RP]/,'')}</div>`:`<div class="stepnum" style="background:var(--bg-2);color:var(--ink-3)">${icon(e.kind==='exam'?'target':'book',2)}</div>`}
+    <div style="flex:1;min-width:0">
+      <div class="ttl">${esc(c.name)}</div>
+      <div class="meta">${badge}
+        <span>${IDFmt.med.format(parseISO(e.due))} • ${relDay(e.due)}</span>
+        ${e.kind==='review'?`<span class="muted">hari ke-${e.offset ?? '—'}</span>`:''}
+        ${weakTopics(c).length?`<span class="badge b-warn">${weakTopics(c).length} topik lemah</span>`:''}
+      </div>
+    </div>
+    <div class="acts">${big?act:`<button class="btn btn-sm btn-ghost" data-act="open-course" data-id="${c.id}">Detail</button>`}</div>
+  </div>`;
+}
+function bindEventRows(){
+  $$('.ritem[data-course]').forEach(r => {
+    const b = r.querySelector('.acts .btn');
+    if (!b) r.onclick = () => { const c = byId(r.dataset.course); if (c) courseDetail(c); };
+  });
+}
+
+/* ============================== MATA KULIAH ============================== */
+function renderCourses(){
+  const FILTERS = [['all','Semua'],['pass','Tuntas'],['fail','Belum tuntas'],['ungraded','Belum dinilai']];
+  let list = state.courses.slice();
+  if (route.q) list = list.filter(c => (c.name+' '+(c.lecturer||'')+' '+(c.topics||[]).map(t=>t.name).join(' ')).toLowerCase().includes(route.q.toLowerCase()));
+  if (route.filter === 'pass') list = list.filter(c => c.status==='pass'||c.status==='mastery');
+  if (route.filter === 'fail') list = list.filter(c => c.status==='fail');
+  if (route.filter === 'ungraded') list = list.filter(c => !['pass','mastery','fail'].includes(c.status));
+  list.sort((a,b) => {
+    const na = nextItem(a), nb = nextItem(b);
+    if (na && nb) return na.due < nb.due ? -1 : 1;
+    if (na) return -1; if (nb) return 1;
+    return a.name.localeCompare(b.name);
+  });
+
+  let h = `<div class="card card-pad" style="margin-bottom:16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+    <div style="position:relative;flex:1;min-width:190px">
+      <input class="input" id="q" placeholder="Cari mata kuliah atau topik…" value="${esc(route.q)}" style="padding-left:34px">
+      <span style="position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--ink-3);width:16px;height:16px;display:block">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></span>
+    </div>
+    <div class="tabs">${FILTERS.map(f => `<button class="tab ${route.filter===f[0]?'active':''}" data-filter="${f[0]}">${f[1]}
+      <span class="muted" style="font-weight:800">${f[0]==='all'?state.courses.length:state.courses.filter(c=>f[0]==='pass'?(c.status==='pass'||c.status==='mastery'):f[0]==='fail'?c.status==='fail':!['pass','mastery','fail'].includes(c.status)).length}</span></button>`).join('')}</div>
+  </div>`;
+
+  if (!list.length){
+    h += `<div class="card"><div class="empty">${icon('book',1.6)}<h4>${state.courses.length?'Tidak ada yang cocok':'Belum ada mata kuliah'}</h4>
+      <p class="small">${state.courses.length?'Coba ubah kata kunci atau filter.':'Mulai dengan menambahkan mata kuliah yang sedang kamu ambil.'}</p>
+      <button class="btn btn-primary" style="margin-top:14px" data-act="new-course">${icon('plus',2.4)}Tambah Matkul</button></div></div>`;
+  } else {
+    h += `<div class="grid g3">${list.map(courseCard).join('')}</div>`;
+  }
+  $('#view-courses').innerHTML = h;
+  const q = $('#q'); if (q) q.oninput = () => { route.q = q.value; renderCourses(); const nq = $('#q'); nq.focus(); nq.setSelectionRange(nq.value.length, nq.value.length); };
+  $$('[data-filter]').forEach(b => b.onclick = () => { route.filter = b.dataset.filter; renderCourses(); });
+  bindActions();
+}
+
+function courseCard(c){
+  const g = gradeOf(c.lastScore, c);
+  const nx = nextItem(c);
+  const p = courseProgress(c);
+  const weak = weakTopics(c);
+  const initials = c.name.split(/\s+/).filter(w=>/[A-Za-z0-9]/.test(w)).slice(0,2).map(w=>w[0]).join('').toUpperCase() || 'MK';
+  return `<div class="card course">
+    <div class="course-top">
+      <div class="course-av" style="background:${c.color||'#4f46e5'}">${esc(initials)}</div>
+      <div style="flex:1;min-width:0">
+        <div class="course-name" style="overflow:hidden;text-overflow:ellipsis">${esc(c.name)}</div>
+        <div class="course-sub">${esc(c.lecturer||'Tanpa dosen')}${c.credits?` • ${c.credits} SKS`:''}</div>
+      </div>
+      <span class="badge ${g.cls}">${g.label}</span>
+    </div>
+    <div class="course-body">
+      <div style="display:flex;align-items:flex-end;gap:12px">
+        <div class="score-big"><span class="n" style="color:${g.tier==='fail'?'var(--bad)':g.tier==='mastery'?'var(--ok)':'var(--ink)'}">${c.lastScore==null?'—':c.lastScore}</span>
+          <span class="u">/ 100</span></div>
+        <div style="margin-left:auto;text-align:right">
+          <div class="xsmall muted">passing grade</div>
+          <div class="small strong">${pgOf(c)}%${mgOf(c)!==state.settings.masteryGrade||c.masteryGrade?` • mastery ${mgOf(c)}%`:''}</div>
+        </div>
+      </div>
+      ${c.lastScore==null?`<div class="banner info" style="margin:0;padding:10px 12px">${icon('info',2.1)}<div><span>Belum ada skor tes. Masukkan skor untuk mengaktifkan jadwal spaced repetition.</span></div></div>`:''}
+      ${c.status==='fail'?`<div class="banner bad" style="margin:0;padding:10px 12px">${icon('refresh',2.1)}<div><b style="font-size:12.5px">Belajar ulang besok</b><span>Skor di bawah ${pgOf(c)}%. Belum dapat jadwal spaced repetition sampai tes ulang tuntas.</span></div></div>`:''}
+      ${(c.status==='pass'||c.status==='mastery')?`<div>
+        <div class="kv" style="margin-bottom:6px"><span class="k">Progres ladder</span><span class="v">${p.done}/${p.total} tahap</span></div>
+        <div class="ladder">${activeLadder(c).map((_,i)=>{
+          const r=i+1;
+          const its=(c.schedule||[]).filter(s=>s.rung===r&&s.kind==='review');
+          const it=its.find(s=>s.state==='pending') || its[its.length-1];
+          const cls = it&&it.state==='done'?'done':it&&it.state==='pending'&&it.due<todayISO()?'late':it&&it.state==='pending'&&nx&&nx.id===it.id?'now':'';
+          return `<div class="rung ${cls}"><div class="bar" style="height:${8+i*5}px"></div><div class="d">${r}</div></div>`;}).join('')}</div>
+      </div>`:''}
+      <div class="hr" style="margin:2px 0"></div>
+      <div class="kv"><span class="k">Topik</span><span class="v">${(c.topics||[]).length} ${weak.length?`<span class="badge b-warn" style="margin-left:4px">${weak.length} lemah</span>`:''}</span></div>
+      <div class="kv"><span class="k">${nx?(nx.kind==='exam'?'Ujian':'Jadwal berikutnya'):'Status'}</span>
+        <span class="v" style="color:${nx&&nx.due<todayISO()?'var(--bad)':'inherit'}">${nx?`${IDFmt.short.format(parseISO(nx.due))} • ${relDay(nx.due)}`:(c.status==='fail'?'menunggu tes ulang':(c.lastScore==null?'—':'ladder selesai'))}</span></div>
+      ${c.examDate?`<div class="kv"><span class="k">Tanggal ujian</span><span class="v">${IDFmt.short.format(parseISO(c.examDate))} (${diffDays(todayISO(),c.examDate)} hari)</span></div>`:''}
+    </div>
+    <div class="course-foot">
+      <button class="btn btn-sm" data-act="open-course" data-id="${c.id}">${icon('book')}Detail</button>
+      <button class="btn btn-sm ${c.status==='fail'?'btn-bad':'btn-primary'}" data-act="score" data-id="${c.id}">${icon('target')}Isi Skor</button>
+      ${nx&&nx.kind==='review'&&nx.state==='pending'?`<button class="btn btn-sm" data-act="review" data-id="${c.id}" data-item="${nx.id}">${icon('play')}Review</button>`:''}
+      <button class="btn btn-sm btn-ghost" style="margin-left:auto" data-act="edit-course" data-id="${c.id}" title="Ubah">${icon('edit')}</button>
+    </div>
+  </div>`;
+}
+
+/* ============================== DETAIL MATKUL ============================== */
+function courseDetail(c){
+  if (!c) return;
+  const g = gradeOf(c.lastScore, c);
+  openModal({
+    wide:true,
+    title: esc(c.name),
+    sub: `${esc(c.lecturer||'Tanpa dosen')}${c.credits?` • ${c.credits} SKS`:''} • <span class="badge ${g.cls}">${g.label}</span>`,
+    body: detailBody(c),
+    foot: `<button class="btn" data-act="export-ics-one" data-id="${c.id}">${icon('cal')}Export .ics matkul ini</button>
+      <button class="btn" data-act="edit-course" data-id="${c.id}">${icon('edit')}Ubah</button>
+      <button class="btn btn-bad" data-act="del-course" data-id="${c.id}">${icon('trash')}Hapus</button>
+      <button class="btn btn-primary" data-act="score" data-id="${c.id}">${icon('target')}Isi Skor Tes</button>`,
+    onMount(r){ bindActions(r); }
+  });
+}
+function detailBody(c){
+  const g = gradeOf(c.lastScore, c);
+  const ladder = ladderOf(c);
+  const p = courseProgress(c);
+  const weak = weakTopics(c);
+  let h = `<div class="grid g3" style="margin-bottom:16px">
+    ${statCard('Skor terakhir', c.lastScore==null?'—':c.lastScore, c.lastScoreDate?IDFmt.short.format(parseISO(c.lastScoreDate)):'belum ada tes', c.lastScore==null?'mute':g.tier==='fail'?'bad':'ok')}
+    ${statCard('Passing grade', pgOf(c)+'%', `mastery ${mgOf(c)}%`, 'brand')}
+    ${statCard('Percobaan tes', (c.attempts||[]).length, `rata-rata ${avgScore(c)==null?'—':avgScore(c)+'%'}`, 'mute')}
+  </div>`;
+
+  h += `<div class="sec-title">Keputusan metode</div>
+    <div class="verdict ${g.tier==='fail'?'bad':(g.tier==='pass'||g.tier==='mastery')?'ok':'warn'}">
+      <h4>${icon(g.tier==='fail'?'alert':g.tier==='mastery'?'spark':'check',2.2)} ${
+        c.lastScore==null ? 'Belum dinilai' :
+        g.tier==='fail' ? `Belum tuntas — ${c.lastScore}% < ${pgOf(c)}%` :
+        g.tier==='mastery' ? `Tuntas tingkat mastery — ${c.lastScore}% ≥ ${mgOf(c)}%` :
+        `Tuntas — ${c.lastScore}% ≥ ${pgOf(c)}%`}</h4>
+      <p>${
+        c.lastScore==null ? 'Masukkan skor tes untuk mengaktifkan keputusan ini.' :
+        g.tier==='fail' ? `Tidak memenuhi kriteria ketuntasan ${pgOf(c)}%. Sesuai desain mastery learning, materi dipelajari ulang <b>besok</b> lalu dites ulang. Jadwal spaced repetition baru terbentuk setelah skor mencapai passing grade.` :
+        g.tier==='mastery' ? `Skor melewati ambang mastery ${mgOf(c)}% (Wilson dkk. 2019: ~85% adalah zona laju belajar optimum). Materi sudah terkonsolidasi, jadi dipakai ladder <b>mastery</b> yang interval awalnya lebih longgar: ${ladder.join(', ')} hari.` :
+        `Skor memenuhi kriteria ketuntasan ${pgOf(c)}% tetapi belum mencapai ambang mastery ${mgOf(c)}%. Dipakai ladder <b>standar</b> dengan interval lebih rapat: ${ladder.join(', ')} hari.`}
+      </p>
+      ${(c.schedule||[]).length && Array.isArray(c.cums) && c.examDate && c.cums.join(',') !== ladder.join(',') ? `<ul><li>Ladder dipadatkan otomatis menjadi hari ke <b>${c.cums.join(', ')}</b> agar semua review selesai sebelum ujian ${IDFmt.short.format(parseISO(c.examDate))} (Cepeda dkk. 2008).</li></ul>` : ''}
+      ${g.tier==='fail' && (c.attempts||[]).length>=RESEARCH.maxRemedialAttempts ? `<ul><li>Sudah ${(c.attempts||[]).length}× tes dan belum tuntas. Pertimbangkan memecah materi jadi bagian lebih kecil, atau ganti strategi belajar (contoh soal, ajar ulang ke orang lain).</li></ul>` : ''}
+    </div>`;
+
+  h += `<div class="sec-title">Topik / bab ${weak.length?`<span class="badge b-warn">${weak.length} di bawah passing grade</span>`:''}</div>`;
+  if ((c.topics||[]).length){
+    h += `<div class="card" style="overflow:hidden"><table class="tier-table"><thead><tr><th>Topik</th><th style="width:90px">Skor</th><th style="width:120px">Status</th></tr></thead><tbody>
+      ${c.topics.slice().sort((a,b)=>(a.score??999)-(b.score??999)).map(t => {
+        const s = t.score;
+        const st = s==null ? `<span class="badge b-mute">belum dinilai</span>` : s>=mgOf(c) ? `<span class="badge b-ok">mastery</span>` : s>=pgOf(c) ? `<span class="badge b-ok">tuntas</span>` : `<span class="badge b-bad">lemah</span>`;
+        return `<tr><td>${esc(t.name)}${t.weight&&t.weight!==1?` <span class="muted xsmall">(bobot ${t.weight})</span>`:''}</td>
+          <td class="mono strong">${s==null?'—':s+'%'}</td><td>${st}</td></tr>`;
+      }).join('')}</tbody></table></div>`;
+  } else h += `<p class="small muted">Belum ada topik. Tambahkan lewat tombol Ubah agar review lebih terarah.</p>`;
+
+  h += `<div class="sec-title">Jadwal spaced repetition <span class="muted" style="text-transform:none;letter-spacing:0;font-weight:600">(${p.done}/${p.total} tahap selesai)</span></div>`;
+  if ((c.schedule||[]).length){
+    h += `<div class="card" style="overflow:hidden"><div class="rlist">`;
+    const base = c.baseDate;
+    h += c.schedule.filter(s=>s.kind!=='exam'||true).map(s => {
+      const isOver = s.state==='pending' && s.due < todayISO() && s.kind!=='exam';
+      const tone = s.kind==='exam'?'var(--warn)':s.kind==='remedial'?'var(--bad)':c.color;
+      return `<div class="ritem ${s.state==='done'?'done':''} ${isOver?'overdue':''}" style="cursor:default">
+        <div class="bar" style="background:${tone}"></div>
+        <div class="stepnum" style="${s.kind==='exam'?'background:var(--warn-soft);color:var(--warn-ink)':''}">${s.kind==='exam'?icon('target',2):s.label.replace(/[RP]/,'')}</div>
+        <div style="flex:1;min-width:0">
+          <div class="ttl" style="font-size:13.5px">${s.kind==='exam'?'UJIAN '+esc(c.name):s.kind==='remedial'?'Belajar ulang + tes ulang':'Review '+s.label+(s.maint?' (pemeliharaan jangka panjang)':'')}</div>
+          <div class="meta"><span>${IDFmt.long.format(parseISO(s.due))}</span><span class="muted">${relDay(s.due)}</span>
+            ${s.offset!=null?`<span class="muted">hari ke-${s.offset} sejak tes</span>`:''}
+            ${s.state==='done'?`<span class="badge b-mute">selesai${s.rating?' • '+rateLabel(s.rating):''} ${s.doneDate?IDFmt.short.format(parseISO(s.doneDate)):''}</span>`:''}
+            ${s.state==='skipped'?`<span class="badge b-mute">dilewati</span>`:''}
+            ${isOver?`<span class="badge b-bad">terlambat ${-diffDays(s.due,todayISO())} hr</span>`:''}</div>
+        </div>
+        <div class="acts">${s.state==='pending'&&s.kind==='review'?`<button class="btn btn-sm btn-primary" data-act="review" data-id="${c.id}" data-item="${s.id}">Mulai</button>`:''}</div>
+      </div>`;
+    }).join('');
+    h += `</div></div>`;
+  } else h += `<p class="small muted">Belum ada jadwal. Masukkan skor tes dulu.</p>`;
+
+  if ((c.attempts||[]).length){
+    h += `<div class="sec-title">Riwayat tes</div><div class="card" style="overflow:hidden"><table class="tier-table">
+      <thead><tr><th style="width:60px">Ke-</th><th>Tanggal</th><th style="width:90px">Skor</th><th style="width:130px">Hasil</th></tr></thead><tbody>
+      ${c.attempts.slice().reverse().map(a => { const ag = gradeOf(a.score, c);
+        return `<tr><td class="mono">#${a.attemptNo}</td><td>${IDFmt.med.format(parseISO(a.date))}</td>
+          <td class="mono strong">${a.score}%</td><td><span class="badge ${ag.cls}">${ag.label}</span></td></tr>`; }).join('')}
+      </tbody></table></div>`;
+  }
+  return h;
+}
+
+/* ============================== MODAL: MATKUL ============================== */
+let topicDraft = [];
+function courseModal(c){
+  const isNew = !c;
+  topicDraft = isNew ? [{id:uid(),name:'',weight:1,score:null}]
+    : (c.topics||[]).map(t => ({...t}));
+  if (isNew && !topicDraft.length) topicDraft.push({id:uid(),name:'',weight:1,score:null});
+
+  const body = `
+  <div class="sec-title">Identitas</div>
+  <div class="row">
+    <div class="field" style="flex:2"><label>Nama mata kuliah *</label>
+      <input class="input" id="f_name" placeholder="mis. Algoritma & Struktur Data" value="${esc(c?.name||'')}"></div>
+    <div class="field"><label>Warna</label><input class="input" type="color" id="f_color" value="${c?.color||PALETTE[state.courses.length%PALETTE.length]}"></div>
+  </div>
+  <div class="row" style="margin-top:12px">
+    <div class="field" style="flex:2"><label>Dosen</label><input class="input" id="f_lect" placeholder="opsional" value="${esc(c?.lecturer||'')}"></div>
+    <div class="field"><label>SKS</label><input class="input" id="f_sks" type="number" min="0" max="12" step="1" placeholder="3" value="${c?.credits??''}"></div>
+  </div>
+  <div class="row" style="margin-top:12px">
+    <div class="field"><label>Ruang / lokasi</label><input class="input" id="f_loc" placeholder="opsional, masuk ke .ics" value="${esc(c?.location||'')}"></div>
+    <div class="field"><label>Tanggal ujian / tenggat</label><input class="input" id="f_exam" type="date" value="${c?.examDate||''}">
+      <div class="help">Kalau diisi, ladder otomatis dipadatkan agar semua review selesai sebelum ujian (Cepeda dkk. 2008).</div></div>
+  </div>
+
+  <div class="sec-title">Ambang ketuntasan <span class="muted" style="text-transform:none;letter-spacing:0;font-weight:600">(kosongkan = pakai default)</span></div>
+  <div class="row">
+    <div class="field"><label>Passing grade (%)</label><input class="input" id="f_pg" type="number" min="1" max="100" step="1" placeholder="${state.settings.passingGrade}" value="${c?.passingGrade??''}">
+      <div class="help">Default ${state.settings.passingGrade}% — konsensus mastery learning.</div></div>
+    <div class="field"><label>Ambang mastery (%)</label><input class="input" id="f_mg" type="number" min="1" max="100" step="1" placeholder="${state.settings.masteryGrade}" value="${c?.masteryGrade??''}">
+      <div class="help">Default ${state.settings.masteryGrade}% — skor ≥ ini dapat interval lebih longgar.</div></div>
+  </div>
+
+  <div class="sec-title">Topik / bab <span class="muted" style="text-transform:none;letter-spacing:0;font-weight:600">— dipakai untuk menandai topik lemah</span></div>
+  <div id="topicList"></div>
+  <button class="btn btn-sm" id="addTopic" type="button">${icon('plus',2.4)}Tambah topik</button>
+  <div class="hr"></div>
+  <p class="xsmall muted">Topik dengan skor di bawah passing grade akan ditandai <b>lemah</b> dan diprioritaskan di setiap sesi review serta di deskripsi event kalender.</p>`;
+
+  openModal({
+    title: isNew ? 'Tambah Mata Kuliah' : 'Ubah Mata Kuliah',
+    sub: isNew ? 'Isi identitas, ambang ketuntasan, dan daftar topik.' : esc(c.name),
+    body, wide:true,
+    foot: `<button class="btn" data-close>Batal</button>
+      ${isNew?'':'<button class="btn btn-bad" id="f_del">'+icon('trash')+'Hapus</button>'}
+      <button class="btn btn-primary" id="f_save">${icon('check',2.4)}${isNew?'Simpan & lanjut isi skor':'Simpan perubahan'}</button>`,
+    onMount(r){
+      renderTopicList();
+      r.querySelector('#addTopic').onclick = () => { topicDraft.push({id:uid(),name:'',weight:1,score:null}); renderTopicList(); };
+      const del = r.querySelector('#f_del');
+      if (del) del.onclick = () => { closeModal(); handleAct('del-course', c.id); };
+      r.querySelector('#f_save').onclick = () => {
+        const name = r.querySelector('#f_name').value.trim();
+        if (!name){ toast('bad','Nama wajib diisi','Tulis nama mata kuliahnya dulu.'); r.querySelector('#f_name').focus(); return; }
+        const num = (sel, min, max) => { const v = r.querySelector(sel).value.trim(); if (v==='') return null;
+          const n = Number(v); return isNaN(n) ? null : clamp(n, min, max); };
+        const data = {
+          name, color: r.querySelector('#f_color').value,
+          lecturer: r.querySelector('#f_lect').value.trim(),
+          credits: num('#f_sks',0,12), location: r.querySelector('#f_loc').value.trim(),
+          examDate: r.querySelector('#f_exam').value || null,
+          passingGrade: num('#f_pg',1,100), masteryGrade: num('#f_mg',1,100),
+          topics: topicDraft.filter(t => t.name.trim()).map(t => ({...t, name:t.name.trim(), weight:Number(t.weight)||1})),
+        };
+        if (data.passingGrade!=null && data.masteryGrade!=null && data.masteryGrade < data.passingGrade){
+          toast('warn','Ambang mastery terlalu rendah','Ambang mastery harus ≥ passing grade. Diperbaiki otomatis ke '+data.passingGrade+'%.');
+          data.masteryGrade = data.passingGrade;
+        }
+        if (isNew){
+          const nc = { id:uid(), status:'ungraded', lastScore:null, attempts:[], schedule:[], history:[],
+                       createdAt:new Date().toISOString(), createdAtISO:todayISO(), baseDate:todayISO(), ...data };
+          state.courses.push(nc);
+          buildSchedule(nc);
+          logAct('add', `Mata kuliah ditambahkan: ${nc.name}`, nc.id); save(); closeModal(); renderAll();
+          toast('ok','Mata kuliah ditambahkan', nc.name);
+          setTimeout(() => scoreModal(nc), 260);
+        } else {
+          const before = { pg:pgOf(c), mg:mgOf(c), exam:c.examDate };
+          Object.assign(c, data);
+          const changed = before.pg!==pgOf(c) || before.mg!==mgOf(c) || before.exam!==c.examDate;
+          if (changed && c.status!=='ungraded'){ buildSchedule(c); }
+          logAct('edit', `Mata kuliah diperbarui: ${c.name}`, c.id); save(); closeModal(); renderAll();
+          toast('ok','Perubahan disimpan', changed && c.status!=='ungraded' ? 'Jadwal dihitung ulang mengikuti ambang/tanggal ujian baru.' : c.name);
+        }
+      };
+    }
+  });
+
+  function renderTopicList(){
+    const box = $('#topicList');
+    if (!box) return;
+    box.innerHTML = topicDraft.map((t,i) => `<div class="topic-row" data-i="${i}">
+      <input class="input" placeholder="Nama topik / bab" value="${esc(t.name)}" data-f="name">
+      <input class="input sc" type="number" min="0" max="100" step="1" placeholder="skor" value="${t.score??''}" data-f="score" title="Skor topik (opsional)">
+      <button class="btn btn-sm del" type="button" data-del="${i}" title="Hapus topik">${icon('trash')}</button>
+    </div>`).join('');
+    $$('.topic-row', box).forEach(row => {
+      const i = +row.dataset.i;
+      row.querySelector('[data-f=name]').oninput = e => topicDraft[i].name = e.target.value;
+      row.querySelector('[data-f=score]').oninput = e => { const v = e.target.value.trim(); topicDraft[i].score = v===''?null:clamp(Number(v),0,100); };
+      row.querySelector('[data-del]').onclick = () => { topicDraft.splice(i,1); if(!topicDraft.length) topicDraft.push({id:uid(),name:'',weight:1,score:null}); renderTopicList(); };
+    });
+  }
+}
+
+/* ============================== MODAL: SKOR TES ============================== */
+function scoreModal(c){
+  if (!c) return;
+  const topics = c.topics || [];
+  const pg = pgOf(c), mg = mgOf(c);
+  const attemptNo = (c.attempts||[]).length + 1;
+  const body = `
+  ${c.status==='fail'?`<div class="banner bad" style="margin-bottom:16px">${icon('refresh',2.1)}<div>
+    <b>Tes ulang ke-${attemptNo}</b><span>Skor sebelumnya ${c.lastScore}% — di bawah passing grade ${pg}%. Masukkan hasil tes ulang hari ini.</span></div></div>`:''}
+  <div class="sec-title">Hasil tes</div>
+  <div class="row">
+    <div class="field" style="flex:2"><label>Tanggal tes</label>
+      <input class="input" id="s_date" type="date" value="${todayISO()}" max="${todayISO()}"></div>
+    <div class="field" style="flex:2"><label>Skor keseluruhan (0–100) ${topics.length?'<span class="muted" style="font-weight:600;text-transform:none">— kosongkan untuk hitung dari skor topik</span>':''}</label>
+      <input class="input" id="s_score" type="number" min="0" max="100" step="0.5" placeholder="mis. 78" inputmode="decimal"></div>
+  </div>
+
+  ${topics.length?`<div class="sec-title">Skor per topik <span class="muted" style="text-transform:none;letter-spacing:0;font-weight:600">(opsional — untuk menandai topik lemah)</span></div>
+    <div id="s_topics">${topics.map(t => `<div class="topic-row">
+      <div style="flex:1;min-width:0"><div class="small strong" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(t.name)}</div>
+        ${t.score!=null?`<div class="xsmall muted">skor terakhir: ${t.score}%</div>`:''}</div>
+      <input class="input sc" type="number" min="0" max="100" step="1" placeholder="${t.score!=null?t.score+'':'—'}" data-tid="${t.id}"></div>`).join('')}</div>`:''}
+
+  <div id="verdict"></div>`;
+
+  openModal({
+    title:`Isi Skor Tes — ${esc(c.name)}`,
+    sub:`Percobaan ke-${attemptNo} • passing grade ${pg}% • ambang mastery ${mg}%`,
+    body,
+    foot:`<button class="btn" data-close>Batal</button>
+      <button class="btn btn-primary" id="s_save">${icon('check',2.4)}Simpan & buat jadwal</button>`,
+    onMount(r){
+      const sIn = r.querySelector('#s_score');
+      const tIns = $$('[data-tid]', r);
+      const box = r.querySelector('#verdict');
+      function readTopics(){
+        const m = {};
+        tIns.forEach(i => { const v = i.value.trim(); if (v!=='') m[i.dataset.tid] = clamp(Number(v),0,100); });
+        return m;
+      }
+      function currentScore(){
+        const v = sIn.value.trim();
+        if (v !== '') return clamp(Number(v), 0, 100);
+        const ts = readTopics(); const arr = Object.values(ts);
+        if (!arr.length) return null;
+        const tw = topics.filter(t => ts[t.id]!=null);
+        const sumW = tw.reduce((s,t)=>s+(Number(t.weight)||1),0) || arr.length;
+        const sum = tw.reduce((s,t)=>s+ts[t.id]*(Number(t.weight)||1),0) || arr.reduce((a,b)=>a+b,0);
+        return round1(sum/sumW);
+      }
+      function paint(){
+        const sc = currentScore();
+        if (sc == null){ box.innerHTML = `<div class="verdict warn" style="border-color:var(--line);background:var(--card-2)">
+          <h4>${icon('info',2.2)} Masukkan skor untuk melihat keputusan</h4>
+          <p>Jeda akan memutuskan otomatis: <b>tuntas</b> → susun jadwal spaced repetition; <b>belum tuntas</b> → belajar ulang besok.</p></div>`; return; }
+        const g = gradeOf(sc, c);
+        const ladder = g.tier==='mastery' ? state.settings.ladderMastery : state.settings.ladderStandard;
+        const base = r.querySelector('#s_date').value || todayISO();
+        if (g.tier === 'fail'){
+          box.innerHTML = `<div class="verdict bad">
+            <h4>${icon('alert',2.2)} Belum tuntas — ${sc}% &lt; ${pg}%</h4>
+            <p><b>Belajar ulang besok (${IDFmt.med.format(parseISO(addDays(base,1)))})</b>, lalu tes ulang.
+            Sesuai prinsip mastery learning, materi yang belum tuntas tidak boleh langsung masuk siklus spaced repetition —
+            retrieval practice hanya memperkuat jejak memori yang sudah benar.</p>
+            <ul>
+              <li>Pelajari ulang materinya — jangan baca ulang pasif, kerjakan soal tanpa melihat kunci.</li>
+              ${(()=>{ const ts=readTopics(); const w=topics.filter(t=>ts[t.id]!=null&&ts[t.id]<pg); return w.length?`<li>Fokus ke topik lemah: <b>${esc(w.map(t=>`${t.name} (${ts[t.id]}%)`).join(', '))}</b>.</li>`:''; })()}
+              <li>Besok, buka Jeda dan masukkan skor tes ulang. Begitu ≥ ${pg}%, jadwal spaced repetition langsung terbentuk.</li>
+              ${attemptNo>=RESEARCH.maxRemedialAttempts?`<li>Sudah ${attemptNo} percobaan. Pecah materi jadi bagian lebih kecil atau ganti strategi (ajarkan ulang ke teman, kerjakan soal variasi).</li>`:''}
+            </ul></div>`;
+        } else {
+          const kind = g.tier==='mastery'?'mastery':'standar';
+          box.innerHTML = `<div class="verdict ok">
+            <h4>${icon(g.tier==='mastery'?'spark':'check',2.2)} ${g.tier==='mastery'?`Tuntas tingkat mastery — ${sc}% ≥ ${mg}%`:`Tuntas — ${sc}% ≥ ${pg}%`}</h4>
+            <p>Ladder <b>${kind}</b> diaktifkan. Review terjadwal pada hari ke <b>${ladder.join(', ')}</b> sejak tes,
+            lalu pemeliharaan jangka panjang hari ke ${RESEARCH.maintenance.join(' dan ')}.</p>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px">
+              ${ladder.map((d,i)=>`<span class="chip" style="${i===0?'background:var(--brand);color:#fff':''}">R${i+1} • ${IDFmt.short.format(parseISO(addDays(base,d)))}</span>`).join('')}
+            </div>
+            ${g.tier==='mastery'?`<p style="margin-top:10px;opacity:.85">Skor di atas ~85% berarti materi sudah terkonsolidasi, jadi interval awal lebih longgar (Wilson dkk., 2019).</p>`:''}
+          </div>`;
+        }
+      }
+      sIn.oninput = paint; tIns.forEach(i => i.oninput = paint); r.querySelector('#s_date').onchange = paint;
+      paint();
+      setTimeout(()=>sIn.focus(), 80);
+
+      r.querySelector('#s_save').onclick = () => {
+        const sc = currentScore();
+        if (sc == null){ toast('bad','Skor belum diisi','Isi skor keseluruhan atau skor minimal satu topik.'); sIn.focus(); return; }
+        const date = r.querySelector('#s_date').value || todayISO();
+        const res = recordScore(c, { date, score: sc, topicScores: readTopics() });
+        closeModal(); renderAll();
+        const nx = nextItem(c);
+        if (res.tier === 'fail'){
+          toast('bad','Belum tuntas — belajar ulang besok', `Skor ${sc}% di bawah passing grade ${pgOf(c)}%. Jadwal: ${nx?IDFmt.med.format(parseISO(nx.due)):'besok'} untuk belajar ulang + tes ulang.`);
+        } else {
+          toast('ok', res.tier==='mastery'?'Tuntas tingkat mastery!':'Tuntas — jadwal dibuat',
+            `${(c.schedule||[]).filter(s=>s.kind==='review').length} sesi review tersusun. ${nx?`Mulai ${IDFmt.med.format(parseISO(nx.due))} (${relDay(nx.due)}).`:''} Jangan lupa export ke kalender.`);
+        }
+      };
+    }
+  });
+}
+
+/* ============================== MODAL: SESI REVIEW ============================== */
+function reviewModal(c, courseId, itemId){
+  if (!c) return;
+  const ev = (c.schedule||[]).find(s => s.id === itemId);
+  if (!ev) return;
+  const done = ev.state === 'done';
+  const weak = weakTopics(c);
+  const strong = (c.topics||[]).filter(t => typeof t.score==='number' && t.score >= pgOf(c));
+  const ladder = activeLadder(c);
+  const ladderAsli = ladderOf(c);
+  const compressed = ladderAsli.join(',') !== ladder.join(',');
+
+  const body = `
+  <div style="display:flex;gap:12px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
+    <div class="course-av" style="background:${c.color||'#4f46e5'}">${ev.kind==='exam'?icon('target',2.2):ev.label.replace(/[RP]/,'')}</div>
+    <div><div style="font-weight:800;font-size:15px">${ev.kind==='exam'?'Ujian':ev.kind==='remedial'?'Belajar ulang':'Review '+ev.label}${ev.maint?' <span class="muted small">(pemeliharaan jangka panjang)</span>':''}</div>
+      <div class="xsmall muted">Jatuh tempo ${IDFmt.long.format(parseISO(ev.due))} • ${relDay(ev.due)}${ev.offset!=null?` • hari ke-${ev.offset} sejak tes`:''}</div></div>
+    <div style="margin-left:auto"><span class="badge ${done?'b-mute':ev.due<todayISO()?'b-bad':'b-brand'}">${done?'Sudah selesai'+(ev.rating?' • '+rateLabel(ev.rating):''):ev.due<todayISO()?'Terlambat':'Jatuh tempo'}</span></div>
+  </div>
+
+  <div class="banner info" style="margin-bottom:14px">${icon('brain',2)}<div>
+    <b>Lakukan retrieval practice, bukan baca ulang</b>
+    <span>Roediger &amp; Karpicke (2006): mencoba mengingat aktif meningkatkan retensi jangka panjang jauh lebih baik daripada membaca ulang materi. Tutup catatan dulu, tulis semua yang kamu ingat, baru cek.</span></div></div>
+
+  ${(c.topics||[]).length?`
+  <div class="sec-title">Fokus sesi ini</div>
+  <div style="display:flex;flex-direction:column;gap:7px">
+    ${weak.map(t=>topicLine(t,'bad')).join('')}
+    ${strong.map(t=>topicLine(t,'ok')).join('')}
+    ${(c.topics||[]).filter(t=>t.score==null).map(t=>topicLine(t,'mute')).join('')}
+  </div>`:''}
+
+  <div class="sec-title">Langkah sesi (${state.settings.durationMin} menit)</div>
+  <ol style="margin:0;padding-left:20px;font-size:13px;color:var(--ink-2);line-height:1.75">
+    <li>Tutup semua catatan. Tulis/ucapkan dari ingatan: definisi, rumus, alur, dan contoh soal tiap topik.</li>
+    ${weak.length?`<li>Dahulukan topik lemah: <b>${esc(weak.map(t=>t.name).join(', '))}</b>.</li>`:'<li>Bagi waktu rata ke semua topik.</li>'}
+    <li>Buka catatan, tandai bagian yang keliru atau hilang — bagian inilah yang perlu diulang.</li>
+    <li>Tutup lagi, ulangi bagian yang salah sekali tanpa melihat.</li>
+    <li>Kerjakan 2–3 soal latihan sebagai tes diri singkat.</li>
+  </ol>
+
+  ${done ? `<div class="verdict ok"><h4>${icon('check',2.2)} Sesi sudah ditandai selesai</h4>
+    <p>Nilai: <b>${rateLabel(ev.rating||'easy')}</b>${ev.doneDate?` pada ${IDFmt.long.format(parseISO(ev.doneDate))}`:''}.</p></div>` : `
+  <div class="sec-title">Nilai sesi ini — menentukan jadwal berikutnya</div>
+  <div class="rate-btns">
+    <button class="rate r-ok" data-rate="easy"><b>Lancar</b><span>Ingat hampir semua. Lanjut ke tahap ${nextRungLabel(c, ev, 'easy')} (${nextGapText(c,ev,'easy')}).</span></button>
+    <button class="rate r-warn" data-rate="hard"><b>Agak sulit</b><span>Ingat tapi perlu mikir. Ulangi tahap ini dengan jeda lebih pendek (${nextGapText(c,ev,'hard')}).</span></button>
+    <button class="rate r-bad" data-rate="again"><b>Lupa</b><span>Hampir tidak ingat. Kembali ke tahap 1, review lagi ${nextGapText(c,ev,'again')}.</span></button>
+  </div>`}`;
+
+  openModal({
+    title: esc(c.name),
+    sub: `${c.lecturer?esc(c.lecturer)+' • ':''}skor tes terakhir ${c.lastScore??'—'}%`,
+    body, wide:true,
+    foot: done
+      ? `<button class="btn" id="r_undo">${icon('refresh')}Tandai belum selesai</button><button class="btn btn-primary" data-close>Tutup</button>`
+      : `<button class="btn" data-act="skip" data-id="${c.id}" data-item="${ev.id}" id="r_skip">Lewati</button>
+         <button class="btn" data-act="export-ics-one" data-id="${c.id}">${icon('cal')}Export .ics</button>
+         <button class="btn btn-primary" data-close>Tutup</button>`,
+    onMount(r){
+      bindActions(r);
+      const skipB = r.querySelector('#r_skip');
+      if (skipB) skipB.addEventListener('click', () => setTimeout(closeModal, 0));
+      $$('[data-rate]', r).forEach(b => b.onclick = () => {
+        const rating = b.dataset.rate;
+        const item = completeItem(c, ev.id, rating);
+        const nx = nextItem(c);
+        closeModal(); renderAll();
+        const msg = rating==='again'
+          ? `Kembali ke tahap 1. Review lagi ${nx?IDFmt.med.format(parseISO(nx.due))+' ('+relDay(nx.due)+')':'besok'}.`
+          : rating==='hard'
+          ? `Tahap diulang dengan jeda pendek. Berikutnya ${nx?IDFmt.med.format(parseISO(nx.due))+' ('+relDay(nx.due)+')':'—'}.`
+          : nx ? `Tahap berikutnya ${nx.label} pada ${IDFmt.med.format(parseISO(nx.due))} (${relDay(nx.due)}).` : 'Seluruh ladder selesai — materi masuk memori jangka panjang.';
+        toast(rating==='again'?'warn':'ok', `${c.name} — ${rateLabel(rating)}`, msg);
+      });
+      const un = r.querySelector('#r_undo');
+      if (un) un.onclick = () => { undoItem(c, ev.id); closeModal(); renderAll(); toast('warn','Dibatalkan','Sesi dikembalikan ke status belum selesai.'); };
+    }
+  });
+
+  function topicLine(t, tone){
+    const col = tone==='bad'?'var(--bad)':tone==='ok'?'var(--ok)':'var(--ink-3)';
+    const bg  = tone==='bad'?'var(--bad-soft)':tone==='ok'?'var(--ok-soft)':'var(--bg-2)';
+    return `<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:10px;background:${bg}">
+      <span class="dot" style="background:${col}"></span>
+      <span style="flex:1;min-width:0;font-size:13px;font-weight:650">${esc(t.name)}</span>
+      ${tone==='bad'?`<span class="badge b-bad">lemah${t.score!=null?' • '+t.score+'%':''}</span>`:tone==='ok'?`<span class="badge b-ok">tuntas${t.score!=null?' • '+t.score+'%':''}</span>`:`<span class="badge b-mute">belum dinilai</span>`}
+    </div>`;
+  }
+}
+function nextRungLabel(c, ev, rating){
+  const ladder = activeLadder(c);
+  const r = rating==='again' ? 1 : (rating==='hard' ? ev.rung : ev.rung + 1);
+  if (r > ladder.length) return 'P' + (r - ladder.length) + ' (pemeliharaan)';
+  if (r > totalRungs(ladder)) return 'selesai';
+  return 'R' + r;
+}
+function nextGapText(c, ev, rating){
+  const ladder = activeLadder(c);
+  const total = totalRungs(ladder);
+  const nextRung = rating==='again'?1:(rating==='hard'?ev.rung:ev.rung+1);
+  let gap;
+  if (rating==='again') gap = RESEARCH.remedialGapDays;
+  else { const g = rungGap(ladder, Math.min(nextRung,total)); gap = rating==='hard'?Math.max(1,Math.round(g*0.5)):g; }
+  return gap + ' hari lagi';
+}
+
+/* ============================== KALENDER ============================== */
+function renderCalendar(){
+  const m = route.month;
+  const y = m.getFullYear(), mo = m.getMonth();
+  const first = new Date(y, mo, 1);
+  const ws = state.settings.weekStart;
+  const dowNames = ['Min','Sen','Sel','Rab','Kam','Jum','Sab'];
+  const order = [...dowNames.slice(ws), ...dowNames.slice(0, ws)];
+  let startOffset = (first.getDay() - ws + 7) % 7;
+  const gridStart = new Date(y, mo, 1 - startOffset);
+  const dim = new Date(y, mo + 1, 0).getDate();
+  const nCells = Math.ceil((startOffset + dim) / 7) * 7;
+
+  const evByDay = {};
+  allEvents().forEach(e => { (evByDay[e.due] = evByDay[e.due] || []).push(e); });
+  Object.values(evByDay).forEach(a => a.sort((x,y2) => (x.kind==='exam'?-1:1) - (y2.kind==='exam'?-1:1) || x.due.localeCompare(y2.due)));
+
+  const cells = [];
+  for (let i = 0; i < nCells; i++){
+    const d = new Date(gridStart); d.setDate(gridStart.getDate() + i);
+    cells.push(d);
+  }
+  const today = todayISO();
+  let h = `<div class="card" style="overflow:hidden">
+    <div class="cal-head">
+      <div class="cal-title">${IDFmt.month.format(m)}</div>
+      <div class="cal-nav">
+        <button class="btn btn-sm btn-icon" id="calPrev">${icon('left',2.2)}</button>
+        <button class="btn btn-sm" id="calToday">Hari ini</button>
+        <button class="btn btn-sm btn-icon" id="calNext">${icon('right',2.2)}</button>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;font-size:11px;color:var(--ink-3);margin-left:12px">
+        <span style="display:flex;align-items:center;gap:4px"><span class="dot" style="background:var(--brand)"></span>Review</span>
+        <span style="display:flex;align-items:center;gap:4px"><span class="dot" style="background:var(--bad)"></span>Belajar ulang</span>
+        <span style="display:flex;align-items:center;gap:4px"><span class="dot" style="background:var(--warn)"></span>Ujian</span>
+      </div>
+    </div>
+    <div class="cal-grid">${order.map(d => `<div class="cal-dow">${d}</div>`).join('')}`;
+  cells.forEach(d => {
+    const iso = toISO(d);
+    const evs = evByDay[iso] || [];
+    const out = d.getMonth() !== mo;
+    const show = evs.slice(0, 3);
+    h += `<div class="cal-cell ${out?'out':''} ${iso===today?'today':''} ${iso===route.selDay?'sel':''} ${[0,6].includes(d.getDay())?'weekend':''}" data-day="${iso}">
+      <div class="cal-dnum">${d.getDate()}</div>
+      ${show.map(e => {
+        const cls = e.kind==='exam'?'t-exam':e.kind==='remedial'?'t-remedial':'';
+        const dn = e.state==='done'?'t-done':'';
+        return `<div class="cal-ev ${cls} ${dn}" style="border-left-color:${e.kind==='review'?e.course.color:''}" data-ev="${e.id}" data-course="${e.course.id}" title="${esc(e.course.name)} — ${e.label}">
+          <span>${esc(e.kind==='exam'?'UJIAN':e.label)}</span> ${esc(e.course.name)}</div>`;
+      }).join('')}
+      ${evs.length>3?`<div class="cal-more">+${evs.length-3} lainnya</div>`:''}
+    </div>`;
+  });
+  h += `</div></div>`;
+
+  h += `<div class="split" style="margin-top:16px">
+    <div class="card"><div class="card-head"><h3>${icon('cal',2)}</h3><h3 id="dayTitle">Detail hari</h3>
+      <div class="right"><button class="btn btn-sm" data-act="export-ics-all">${icon('down')}Export semua .ics</button></div></div>
+      <div id="dayBody"></div></div>
+    <div class="card card-pad">
+      <h3 style="font-size:14.5px;margin-bottom:10px">Ringkasan bulan ini</h3>
+      ${monthStats(mo, y)}
+      <div class="hr"></div>
+      <p class="xsmall muted" style="line-height:1.6">Event kalender memakai jam review
+        <b>${String(state.settings.reviewHour).padStart(2,'0')}:${String(state.settings.reviewMinute).padStart(2,'0')}</b>
+        dengan pengingat <b>${state.settings.alarmMin} menit</b> sebelumnya${state.settings.alarmAtTime?' dan tepat pada waktunya':''}.
+        Ubah di Pengaturan, lalu export ulang file .ics.</p>
+      <button class="btn btn-sm btn-block" style="margin-top:10px" data-go="settings">${icon('gear')}Ubah jam & pengingat</button>
+    </div>
+  </div>`;
+
+  $('#view-calendar').innerHTML = h;
+  $('#calPrev').onclick = () => { route.month = new Date(y, mo-1, 1); renderCalendar(); };
+  $('#calNext').onclick = () => { route.month = new Date(y, mo+1, 1); renderCalendar(); };
+  $('#calToday').onclick = () => { route.month = new Date(); route.selDay = todayISO(); renderCalendar(); };
+  $$('.cal-cell').forEach(cell => cell.onclick = ev => {
+    const t = ev.target.closest('[data-ev]');
+    if (t){ const c = byId(t.dataset.course); const it = (c.schedule||[]).find(s=>s.id===t.dataset.ev);
+      if (c && it){ if (it.kind==='review') reviewModal(c, c.id, it.id); else if (it.kind==='remedial') scoreModal(c); else courseDetail(c); return; } }
+    route.selDay = cell.dataset.day; renderCalendar();
+  });
+  paintDay();
+  bindActions();
+}
+function paintDay(){
+  const iso = route.selDay || todayISO();
+  const t = $('#dayTitle'), b = $('#dayBody');
+  if (!t || !b) return;
+  t.innerHTML = `${IDFmt.long.format(parseISO(iso))} <span class="hint">${relDay(iso)}</span>`;
+  const evs = dueOn(iso).sort((a,b2)=>(a.state==='done'?1:0)-(b2.state==='done'?1:0));
+  if (!evs.length){ b.innerHTML = `<div class="empty" style="padding:32px 20px">${icon('cal',1.7)}<h4>Tidak ada jadwal</h4><p class="small">Hari ini bebas dari review.</p></div>`; return; }
+  b.innerHTML = `<div class="rlist">${evs.map(e => {
+    const c = e.course;
+    return `<div class="ritem ${e.state==='done'?'done':''}">
+      <div class="bar" style="background:${e.kind==='exam'?'var(--warn)':e.kind==='remedial'?'var(--bad)':c.color}"></div>
+      <div class="stepnum">${e.kind==='exam'?icon('target',2):e.kind==='remedial'?icon('refresh',2):e.label.replace(/[RP]/,'')}</div>
+      <div style="flex:1;min-width:0"><div class="ttl">${esc(c.name)}</div>
+        <div class="meta"><span>${e.kind==='exam'?'UJIAN':e.kind==='remedial'?'Belajar ulang + tes ulang':'Review '+e.label}${e.maint?' (pemeliharaan)':''}</span>
+        <span class="muted">${state.settings.reviewHour?String(state.settings.reviewHour).padStart(2,'0'):'00'}:${String(state.settings.reviewMinute).padStart(2,'0')}</span>
+        ${e.state==='done'?`<span class="badge b-mute">selesai${e.rating?' • '+rateLabel(e.rating):''}</span>`:e.state==='skipped'?`<span class="badge b-mute">dilewati</span>`:e.due<todayISO()?`<span class="badge b-bad">terlambat</span>`:''}</div></div>
+      <div class="acts">${e.state==='pending'&&e.kind==='review'?`<button class="btn btn-sm btn-primary" data-act="review" data-id="${c.id}" data-item="${e.id}">Mulai</button>`:''}
+        ${e.state==='pending'&&e.kind==='remedial'?`<button class="btn btn-sm btn-bad" data-act="score" data-id="${c.id}">Isi skor</button>`:''}
+        <button class="btn btn-sm btn-ghost" data-act="open-course" data-id="${c.id}">Detail</button></div></div>`;
+  }).join('')}</div>`;
+  bindActions(b);
+}
+function monthStats(mo, y){
+  const evs = allEvents().filter(e => { const d = parseISO(e.due); return d.getMonth()===mo && d.getFullYear()===y; });
+  const rev = evs.filter(e=>e.kind==='review');
+  const dn = rev.filter(e=>e.state==='done').length;
+  const rem = evs.filter(e=>e.kind==='remedial').length;
+  const ex = evs.filter(e=>e.kind==='exam');
+  return `<div style="display:flex;flex-direction:column;gap:8px">
+    ${miniRow('Total sesi review', rev.length, 'brand')}
+    ${miniRow('Sudah dikerjakan', dn, 'ok')}
+    ${miniRow('Belum / terlewat', rev.length-dn, rev.length-dn?'bad':'mute')}
+    ${miniRow('Sesi belajar ulang', rem, rem?'bad':'mute')}
+    ${ex.length?`<div class="hr" style="margin:2px 0"></div>${ex.map(e=>`<div class="kv"><span class="k">${icon('target')} Ujian ${esc(e.course.name)}</span><span class="v">${IDFmt.short.format(parseISO(e.due))}</span></div>`).join('')}`:''}
+    <div class="progress ${dn?'ok':''}"><i style="width:${rev.length?Math.round(dn/rev.length*100):0}%"></i></div>
+  </div>`;
+}
+
+/* ============================== METODE & RISET ============================== */
+function renderMethod(){
+  const S = state.settings;
+  const std = S.ladderStandard, mst = S.ladderMastery;
+  $('#view-method').innerHTML = `
+  <div class="banner info">${icon('info',2)}<div><b>Ambang ketuntasan di Jeda bukan angka sembarangan</b>
+    <span>Nilai <strong>${S.passingGrade}%</strong> sebagai passing grade dan <strong>${S.masteryGrade}%</strong> sebagai ambang mastery diturunkan dari literatur mastery learning dan riset laju belajar optimum. Semua angka bisa diubah di Pengaturan atau per mata kuliah.</span></div></div>
+
+  <div class="split">
+  <div style="display:flex;flex-direction:column;gap:16px">
+
+    <div class="card"><div class="card-head"><h3>${icon('target',2)}</h3><h3>Tingkatan keputusan</h3>
+      <span class="hint">berdasarkan skor tes</span></div>
+      <table class="tier-table"><thead><tr><th style="width:130px">Rentang skor</th><th>Status</th><th>Tindakan sistem</th></tr></thead><tbody>
+      <tr><td><b class="mono" style="color:var(--bad)">0 – ${(S.passingGrade-0.1).toFixed(1).replace('.0','')}%</b></td>
+        <td><span class="badge b-bad">Belum tuntas</span></td>
+        <td><b>Belajar ulang besok</b> + tes ulang. Tidak masuk jadwal spaced repetition. Setiap kegagalan menambah satu sesi remedial keesokan hari sampai passing grade tercapai.</td></tr>
+      <tr><td><b class="mono" style="color:var(--warn)">${S.passingGrade} – ${(S.masteryGrade-0.1).toFixed(1)}%</b></td>
+        <td><span class="badge b-ok">Tuntas</span></td>
+        <td>Masuk jadwal spaced repetition <b>ladder standar</b>: hari ke ${std.join(', ')}. Interval rapat karena penguasaan masih di ambang kriteria.</td></tr>
+      <tr><td><b class="mono" style="color:var(--ok)">${S.masteryGrade} – 100%</b></td>
+        <td><span class="badge b-ok">Tuntas • Mastery</span></td>
+        <td>Masuk ladder <b>mastery</b> yang lebih longgar: hari ke ${mst.join(', ')}. Materi sudah terkonsolidasi sehingga tidak perlu review seketat tier sebelumnya.</td></tr>
+      </tbody></table>
+      <div style="padding:14px 18px;border-top:1px solid var(--line-2);background:var(--card-2)">
+        <p class="xsmall muted" style="line-height:1.65"><b>Kenapa ${S.passingGrade}%?</b> Mastery learning secara konsisten memakai kriteria ketuntasan 80–90%: dalam studi Bloom (1984), peserta tutor harus mencapai ~90% pada ujian mastery sebelum lanjut unit berikutnya, sedangkan praktik umum di kelas memakai 80%. Di pendidikan kesehatan, <i>Minimum Passing Standard</i> (MPS) paling sering ditetapkan di 80% (mis. Vermylen dkk. 2019 memakai MPS 80%). Angka 80% dipilih sebagai titik temu yang paling banyak didukung.</p>
+        <p class="xsmall muted" style="line-height:1.65;margin-top:8px"><b>Kenapa ${S.masteryGrade}%?</b> Wilson dkk. (2019, <i>Nature Communications</i>) menunjukkan laju belajar maksimum terjadi pada akurasi ≈ 84–85% (error ≈ 15,87%). Skor di atas titik itu menandakan materi sudah dikuasai penuh — di Jeda ini dipakai sebagai sinyal bahwa interval awal boleh diperpanjang.</p>
+      </div>
+    </div>
+
+    <div class="card"><div class="card-head"><h3>${icon('clock',2)}</h3><h3>Ladder interval</h3>
+      <span class="hint">kumulatif sejak tanggal tes</span></div>
+      <div style="padding:16px 18px">
+        <div class="sec-title" style="margin-top:0">Ladder standar (skor ${S.passingGrade}–${(S.masteryGrade-0.1).toFixed(1)}%)</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">${std.map((d,i)=>`<span class="chip" style="${i===0?'background:var(--brand);color:#fff':''}">R${i+1}: hari ${d}</span>`).join('')}
+          ${RESEARCH.maintenance.map((d,i)=>`<span class="chip" style="background:var(--bg-2)">P${i+1}: +${d} hari</span>`).join('')}</div>
+        <p class="xsmall muted" style="line-height:1.6;margin-bottom:14px">Celah antar tahap: ${std.map((d,i)=>d-(std[i-1]??0)).join(' → ')} hari. Pola melebar ini mengikuti <i>expanding retrieval</i> dan temuan Cepeda dkk. bahwa celah optimal melebar seiring makin panjangnya rentensi yang dituju.</p>
+        <div class="sec-title">Ladder mastery (skor ≥ ${S.masteryGrade}%)</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">${mst.map((d,i)=>`<span class="chip" style="${i===0?'background:var(--ok);color:#fff':''}">R${i+1}: hari ${d}</span>`).join('')}</div>
+        <p class="xsmall muted" style="line-height:1.6">Dimulai lebih lambat (hari ke-${mst[0]}, bukan hari ke-${std[0]}) karena skor tinggi berarti jejak memori sudah kuat; memaksa review terlalu dini membuang waktu belajar (<i>desirable difficulties</i>, Bjork).</p>
+        <div class="hr"></div>
+        <div class="sec-title" style="margin-top:0">Penyesuaian otomatis</div>
+        <ul class="xsmall muted" style="margin:0;padding-left:18px;line-height:1.75">
+          <li><b>Punya tanggal ujian?</b> Ladder dipadatkan proporsional supaya semua review jatuh sebelum ujian — mengikuti Cepeda dkk. (2008): celah optimal ≈ 20–40% dari rentensi 1 minggu, menyusut ke ~5–10% untuk rentensi setahun.</li>
+          <li><b>Menilai "Lancar"</b> → naik satu tahap dengan celah penuh.</li>
+          <li><b>Menilai "Agak sulit"</b> → tahap yang sama diulang dengan celah setengahnya.</li>
+          <li><b>Menilai "Lupa"</b> → gagal retrieval, kembali ke tahap 1 besok (relearning; jejak lama tetap memberi <i>savings</i> sehingga pemulihan lebih cepat).</li>
+          <li><b>Setelah ladder habis</b> → 2 sesi pemeliharaan (${RESEARCH.maintenance.join(' dan ')} hari) untuk retensi lintas semester.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card"><div class="card-head"><h3>${icon('brain',2)}</h3><h3>Cara menjalankan sesi review</h3></div>
+      <div style="padding:16px 18px">
+        <p class="small" style="line-height:1.65;color:var(--ink-2)">Jeda menjadwalkan <i>kapan</i> kamu mengulang. Yang menentukan hasilnya adalah <i>bagaimana</i> kamu mengulang. Roediger &amp; Karpicke (2006) menunjukkan siswa yang berlatih retrieval (menutup buku lalu mencoba mengingat) mengalahkan siswa yang membaca ulang empat kali — 61% vs 40% setelah satu minggu.</p>
+        <ol class="small" style="line-height:1.8;padding-left:20px;margin:10px 0 0;color:var(--ink-2)">
+          <li>Tutup semua sumber. Tulis dari ingatan: definisi, rumus, alur, contoh.</li>
+          <li>Buka catatan, tandai yang keliru atau hilang.</li>
+          <li>Ulangi hanya bagian yang salah, tanpa melihat.</li>
+          <li>Kerjakan 2–3 soal sebagai tes diri.</li>
+          <li>Beri nilai jujur: Lancar / Agak sulit / Lupa. Nilai ini yang mengkalibrasi jadwal berikutnya.</li>
+        </ol>
+        <div class="banner warn" style="margin:14px 0 0;padding:11px 13px">${icon('alert',2.1)}<div>
+          <span>Baca ulang pasif terasa produktif tapi nyaris tidak menambah retensi jangka panjang. Rasa "susah" saat mencoba mengingat justru tanda belajarnya bekerja.</span></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:16px">
+    <div class="card"><div class="card-head"><h3>${icon('flask',2)}</h3><h3>Rujukan ilmiah</h3></div>
+      <div style="padding:6px 18px 14px">
+      ${[
+        ['1','Bloom, B. S. (1984). "The 2 Sigma Problem: The Search for Methods of Group Instruction as Effective as One-to-One Tutoring." <i>Educational Researcher</i>, 13(6), 4–16.',
+         'Dasar mastery learning: siswa baru boleh lanjut unit berikutnya setelah mencapai kriteria ketuntasan (~80–90%); yang belum tuntas belajar ulang lalu dites lagi. Ini persis logika "belum tuntas → belajar ulang besok" di Jeda.'],
+        ['2','Wilson, R. C., Shenhav, A., Straccia, M., & Cohen, J. D. (2019). "The Eighty Five Percent Rule for optimal learning." <i>Nature Communications</i>, 10, 4646.',
+         'Laju belajar maksimum pada akurasi ≈ 84–85% (error ≈ 15,87%). Dipakai sebagai dasar ambang mastery 85%: di atasnya materi dianggap sudah terkonsolidasi sehingga interval awal diperlonggar.'],
+        ['3','Cepeda, N. J., Pashler, H., Vul, E., Wixted, J. T., & Rohrer, D. (2006). "Distributed Practice in Verbal Recall Tasks: A Review and Quantitative Synthesis." <i>Psychological Bulletin</i>, 132(3), 354–380.',
+         'Meta-analisis efek spacing: latihan tersebar lebih unggul dari latihan terpusat, dan celah antar-sesi optimal ikut melebar seiring makin panjangnya rentensi yang dituju.'],
+        ['4','Cepeda, N. J., Vul, E., Rohrer, D., Wixted, J. T., & Pashler, H. (2008). "Spacing Effects in Learning: A Temporal Ridgeline of Optimal Retention." <i>Psychological Science</i>, 19(11), 1095–1102.',
+         'Celah optimal ≈ 20–40% dari test delay 1 minggu, turun ke ~5% untuk delay setahun. Jadi dasar pemadatan ladder otomatis ketika tanggal ujian dekat.'],
+        ['5','Karpicke, J. D., & Roediger, H. L. (2007). "Expanding Retrieval Practice Promotes Short-Term Retention, but Equally Spaced Retrieval Enhances Long-Term Retention." <i>JEP: Learning, Memory, and Cognition</i>, 33(4), 617–630.',
+         'Expanding retrieval unggul untuk retensi jangka pendek; untuk jangka panjang pola yang lebih merata lebih baik. Jeda memakai ladder yang melebar di awal lalu melandai (1→3→7→14→30→60).'],
+        ['6','Roediger, H. L., & Karpicke, J. D. (2006). "Test-Enhanced Learning: Taking Memory Tests Improves Long-Term Retention." <i>Psychological Science</i>, 17(3), 249–255.',
+         'Retrieval practice mengalahkan baca ulang (61% vs 40% setelah seminggu). Dasar instruksi sesi review di Jeda: ingat dulu tanpa melihat catatan.'],
+        ['7','Vermylen, J. H., dkk. (2019). "Development of a Simulation-Based Mastery Learning Curriculum." <i>Academic Pediatrics</i>.',
+         'Contoh penetapan Minimum Passing Standard 80% pada kurikulum mastery learning — mendukung pilihan default 80%.'],
+        ['8','McGaghie, W. C., Issenberg, S. B., Petrusa, E. R., & Scalese, R. J. (2010). "A critical review of simulation-based medical education research." <i>Medical Education</i>, 44(1), 50–55.',
+         'Tinjauan kritis: mastery learning dengan DP menaikkan akuisisi dan retensi keterampilan secara konsisten dibanding pengajaran konvensional.'],
+        ['9','Storm, B. C., Bjork, E. L., & Storm, J. C. (2010). "When and why expanding retrieval practice enhances long-term retention." <i>Memory & Cognition</i>.',
+         'Memperjelas kapan expanding retrieval membantu dan kapan tidak — dasar aturan "Lupa → kembali ke tahap 1" dan "Agak sulit → ulangi tahap dengan celah pendek".'],
+      ].map(([n,t,d])=>`<div class="cite"><div class="no">${n}</div><div><b>${t}</b><p>${d}</p></div></div>`).join('')}
+      </div>
+    </div>
+
+    <div class="card card-pad" style="background:var(--brand-soft);border-color:transparent">
+      <h3 style="font-size:14px;color:var(--brand-ink);margin-bottom:8px">${icon('spark',2.2)} Catatan jujur soal batasannya</h3>
+      <ul class="xsmall" style="margin:0;padding-left:18px;line-height:1.7;color:var(--brand-ink);opacity:.9">
+        <li>Angka 80%/85% berasal dari riset laboratorium dan pendidikan kesehatan. Untuk matkul dengan KKM resmi sendiri (mis. 70% atau 75%), ubah passing grade-nya per mata kuliah — sistem tetap berjalan sama.</li>
+        <li>Wilson dkk. meneliti tugas diskriminasi dua pilihan, bukan ujian esai. 85% dipakai di sini sebagai <i>penanda</i> konsolidasi, bukan hukum universal.</li>
+        <li>Skor tes tunggal itu pengukuran yang bising. Karena itu Jeda menyimpan riwayat semua percobaan dan menilai ulang ladder setiap kali ada tes baru.</li>
+        <li>Jeda mengatur <i>kapan</i> mengulang. Efektivitasnya tetap bergantung pada kualitas sesi review (retrieval practice, bukan baca ulang).</li>
+      </ul>
+    </div>
+  </div>
+  </div>`;
+  bindActions();
+}
+
+/* ============================== PENGATURAN ============================== */
+function renderSettings(){
+  const S = state.settings;
+  const lad = a => a.join(', ');
+  $('#view-settings').innerHTML = `
+  <div class="split">
+  <div style="display:flex;flex-direction:column;gap:16px">
+    <div class="card"><div class="card-head"><h3>${icon('target',2)}</h3><h3>Ambang ketuntasan</h3>
+      <span class="hint">berlaku untuk matkul tanpa override</span></div>
+      <div style="padding:16px 18px">
+        <div class="row">
+          <div class="field"><label>Passing grade (%)</label><input class="input" id="set_pg" type="number" min="1" max="100" step="1" value="${S.passingGrade}">
+            <div class="help">Skor ≥ nilai ini → masuk jadwal spaced repetition. Di bawahnya → belajar ulang besok. Riset menyarankan 80–90%.</div></div>
+          <div class="field"><label>Ambang mastery (%)</label><input class="input" id="set_mg" type="number" min="1" max="100" step="1" value="${S.masteryGrade}">
+            <div class="help">Skor ≥ nilai ini → ladder lebih longgar. Riset: ~85%.</div></div>
+        </div>
+        <div class="row" style="margin-top:12px">
+          <div class="field"><label>Ladder standar (hari, kumulatif)</label><input class="input" id="set_lstd" value="${lad(S.ladderStandard)}">
+            <div class="help">Pisahkan dengan koma. Contoh: 1, 3, 7, 14, 30, 60</div></div>
+          <div class="field"><label>Ladder mastery (hari, kumulatif)</label><input class="input" id="set_lmst" value="${lad(S.ladderMastery)}">
+            <div class="help">Harus lebih longgar dari ladder standar.</div></div>
+        </div>
+        <label style="display:flex;gap:9px;align-items:flex-start;margin-top:14px;cursor:pointer">
+          <input type="checkbox" id="set_compress" ${S.autoCompress?'checked':''} style="margin-top:3px;width:16px;height:16px;accent-color:var(--brand)">
+          <span><b class="small">Padatkan ladder otomatis bila ada tanggal ujian</b><br>
+          <span class="xsmall muted">Semua review digeser agar selesai sebelum ujian (Cepeda dkk. 2008).</span></span></label>
+      </div></div>
+
+    <div class="card"><div class="card-head"><h3>${icon('clock',2)}</h3><h3>Jam review & pengingat kalender</h3>
+      <span class="hint">dipakai saat export .ics</span></div>
+      <div style="padding:16px 18px">
+        <div class="row">
+          <div class="field"><label>Jam mulai review</label><input class="input" id="set_hour" type="number" min="0" max="23" value="${S.reviewHour}"></div>
+          <div class="field"><label>Menit</label><input class="input" id="set_min" type="number" min="0" max="59" value="${S.reviewMinute}"></div>
+          <div class="field"><label>Durasi (menit)</label><input class="input" id="set_dur" type="number" min="5" max="240" step="5" value="${S.durationMin}"></div>
+        </div>
+        <div class="row" style="margin-top:12px">
+          <div class="field"><label>Pengingat (menit sebelum)</label><input class="input" id="set_alarm" type="number" min="0" max="1440" step="5" value="${S.alarmMin}">
+            <div class="help">0 = tepat pada waktunya. Ujian selalu dapat pengingat H-1.</div></div>
+          <div class="field"><label>Hari pertama minggu</label>
+            <select class="select" id="set_ws"><option value="1" ${S.weekStart===1?'selected':''}>Senin</option><option value="0" ${S.weekStart===0?'selected':''}>Minggu</option></select></div>
+        </div>
+        <label style="display:flex;gap:9px;align-items:flex-start;margin-top:14px;cursor:pointer">
+          <input type="checkbox" id="set_alarm2" ${S.alarmAtTime?'checked':''} style="margin-top:3px;width:16px;height:16px;accent-color:var(--brand)">
+          <span><b class="small">Tambah pengingat kedua tepat di jam review</b><br>
+          <span class="xsmall muted">Berguna kalau pengingat pertama sering terlewat.</span></span></label>
+        <div class="banner warn" style="margin-top:14px;padding:11px 13px">${icon('info',2.1)}<div>
+          <span>Cara menjaga kalender tetap sinkron:<br>
+          1. Import file .ics ke <strong>kalender khusus bernama "Jeda"</strong> (bukan kalender pribadimu) supaya gampang dikelola.<br>
+          2. Ubah jam/pengingat atau jadwal bergeser? <strong>Export ulang lalu import ulang</strong> — UID event sama, jadi event lama diperbarui, bukan diduplikasi.<br>
+          3. Mulai siklus baru (skor tes baru / lulus remedial)? Paling rapi: <strong>hapus kalender "Jeda" lalu import file terbaru</strong>.<br>
+          4. Sesi sudah dikerjakan? Coret/hapus event-nya di aplikasi kalender; status resminya tetap tercatat di Jeda.</span></div></div>
+      </div></div>
+
+    <div class="card"><div class="card-head"><h3>${icon('cal',2)}</h3><h3>Export ke kalender</h3></div>
+      <div style="padding:16px 18px;display:flex;flex-direction:column;gap:9px">
+        <p class="xsmall muted" style="line-height:1.6">File .ics berisi seluruh review, sesi belajar ulang, dan ujian — lengkap dengan deskripsi langkah sesi, daftar topik lemah, dan pengingat. Bisa dibuka di Google Calendar, Apple Calendar, atau Outlook.</p>
+        <div class="row">
+          <button class="btn btn-primary" data-act="export-ics-all">${icon('down')}Export semua matkul</button>
+          <button class="btn" id="ics_future">Hanya yang akan datang</button>
+        </div>
+        <div class="row">
+          <label style="display:flex;gap:8px;align-items:center;font-size:12.5px;font-weight:650;flex:0 0 auto">
+            <input type="checkbox" id="ics_done" style="width:15px;height:15px;accent-color:var(--brand)">Sertakan sesi yang sudah selesai</label>
+          <div class="field" style="flex:1"><label>Matkul tertentu</label><select class="select" id="ics_course">
+            <option value="">Semua mata kuliah</option>
+            ${state.courses.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select></div>
+        </div>
+        <p class="xsmall muted">Total event yang akan diekspor: <b id="ics_count">—</b></p>
+        <details class="guide"><summary>${icon('info',2.1)} Setelah unduh .ics-nya, lakukan ini</summary>
+          <div class="body">
+            <h5>Google Calendar (Android / web)</h5>
+            <ol>
+              <li>Buat kalender khusus: buka <code>calendar.google.com</code> → panel kiri → <b>Tambahkan kalender</b> → beri nama <b>Jeda</b>.</li>
+              <li>Masih di web: ikon ⚙ <b>Setelan</b> → menu kiri <b>Import &amp; ekspor</b> → pilih file .ics → pilih kalender <b>Jeda</b> → <b>Import</b>.</li>
+              <li>Di HP tidak perlu melakukan apa-apa: aplikasi Google Calendar otomatis menampilkan event dari akun yang sama, termasuk pengingatnya.</li>
+            </ol>
+            <h5>iPhone / iPad (Apple Calendar)</h5>
+            <ol>
+              <li>Kirim file .ics ke HP-mu (AirDrop, email ke diri sendiri, simpan di aplikasi Files, atau chat ke diri sendiri).</li>
+              <li>Ketuk file-nya → iOS menawarkan membuka di <b>Kalender</b> → pilih <b>Tambahkan Semua</b>.</li>
+              <li>Pastikan notifikasi aktif: <code>Pengaturan → Notifikasi → Kalender</code>.</li>
+            </ol>
+            <h5>Outlook</h5>
+            <ol>
+              <li>Web: <b>Kalender</b> → <b>Tambahkan kalender</b> → <b>Unggah dari file</b> → pilih .ics.</li>
+              <li>Desktop: <b>File → Buka &amp; Ekspor → Impor/Ekspor → Impor file iCalendar</b>.</li>
+            </ol>
+            <h5>Menjaga tetap sinkron</h5>
+            <ol>
+              <li>Notifikasi datang dari aplikasi kalender — Jeda tidak perlu terbuka.</li>
+              <li>Jadwal bergeser / jam review diubah? Export ulang lalu import ulang: UID event sama, jadi event lama <b>diperbarui</b>, tidak dobel.</li>
+              <li>Mulai siklus baru (skor tes baru / lulus remedial)? Hapus kalender <b>Jeda</b> lalu import file terbaru supaya bersih.</li>
+              <li>Sesi sudah dikerjakan? Coret atau hapus event itu di kalender; status resminya tetap tercatat di Jeda.</li>
+            </ol>
+          </div>
+        </details>
+      </div></div>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:16px">
+    <div class="card"><div class="card-head"><h3>${icon('book',2)}</h3><h3>Data kamu</h3></div>
+      <div style="padding:16px 18px;display:flex;flex-direction:column;gap:9px">
+        <div class="kv"><span class="k">Mata kuliah</span><span class="v">${state.courses.length}</span></div>
+        <div class="kv"><span class="k">Topik</span><span class="v">${state.courses.reduce((s,c)=>s+(c.topics||[]).length,0)}</span></div>
+        <div class="kv"><span class="k">Percobaan tes</span><span class="v">${state.courses.reduce((s,c)=>s+(c.attempts||[]).length,0)}</span></div>
+        <div class="kv"><span class="k">Sesi review selesai</span><span class="v">${allEvents().filter(e=>e.kind==='review'&&e.state==='done').length}</span></div>
+        <div class="kv"><span class="k">Penyimpanan browser</span><span class="v" style="color:${Store.live?'var(--ok)':'var(--bad)'}">${Store.live?'aktif':'tidak aktif'}</span></div>
+        <div class="kv"><span class="k">Status aplikasi (PWA)</span><span class="v"><span class="badge ${pwaStatus().cls}">${pwaStatus().text}</span></span></div>
+        <div class="hr"></div>
+        <button class="btn btn-block btn-primary js-install hide" data-act="install-app">${icon('down')}Instal sebagai aplikasi</button>
+        <button class="btn btn-block" data-act="export-json">${icon('down')}Backup data (JSON)</button>
+        <button class="btn btn-block" data-act="import-json">${icon('refresh')}Pulihkan dari backup</button>
+        <input type="file" id="importFile" accept="application/json,.json" style="display:none">
+        <button class="btn btn-block" data-act="rebuild">${icon('refresh')}Hitung ulang semua jadwal</button>
+        <button class="btn btn-block btn-ghost" data-act="demo">${icon('spark')}Muat data contoh</button>
+        <button class="btn btn-block btn-bad" data-act="wipe">${icon('trash')}Hapus semua data</button>
+        ${!Store.live?`<div class="banner bad" style="margin:6px 0 0;padding:10px 12px">${icon('alert',2.1)}<div><b>Data tidak permanen</b><span>Browser memblokir penyimpanan lokal (biasanya karena file dibuka dari preview ber-sandbox). Buka file HTML ini langsung di browser, atau rutin pakai Backup JSON.</span></div></div>`:''}
+      </div></div>
+
+    <div class="card"><div class="card-head"><h3>${icon('info',2)}</h3><h3>Tentang Jeda</h3></div>
+      <div style="padding:16px 18px">
+        <p class="small" style="line-height:1.65;color:var(--ink-2)">Aplikasi satu file, berjalan sepenuhnya offline di browser. Tidak ada server, tidak ada akun, data tidak meninggalkan perangkatmu.</p>
+        <div class="hr"></div>
+        <p class="xsmall muted" style="line-height:1.7"><b>Cara pakai:</b><br>
+        1. Tambahkan mata kuliah + daftar topik/bab.<br>
+        2. Masukkan skor tes. Jeda memutuskan tuntas / belum tuntas.<br>
+        3. Tuntas → ladder spaced repetition tersusun otomatis di kalender.<br>
+        4. Belum tuntas → tugas "belajar ulang + tes ulang" besok.<br>
+        5. Export .ics ke Google/Apple Calendar supaya dapat notifikasi di HP.<br>
+        6. Setelah tiap sesi, beri nilai (Lancar / Agak sulit / Lupa) agar jadwal menyesuaikan.</p>
+        <button class="btn btn-sm btn-block" style="margin-top:12px" data-go="method">${icon('flask')}Baca dasar risetnya</button>
+      </div></div>
+  </div>
+  </div>`;
+
+  const q = s => $(s);
+  const bindNum = (sel, key, min, max, after) => { const el = q(sel); if(!el) return;
+    el.onchange = () => { const v = Number(el.value); S[key] = isNaN(v) ? S[key] : clamp(Math.round(v), min, max); el.value = S[key]; after&&after(); persist(); }; };
+  const bindLad = (sel, key) => { const el = q(sel); if(!el) return;
+    el.onchange = () => {
+      const arr = el.value.split(',').map(x=>Number(x.trim())).filter(n=>!isNaN(n)&&n>0).sort((a,b)=>a-b);
+      if (!arr.length){ toast('bad','Ladder tidak valid','Isi minimal satu angka positif, pisahkan dengan koma.'); el.value = lad(S[key]); return; }
+      S[key] = Array.from(new Set(arr)); el.value = lad(S[key]); persist();
+    }; };
+  function persist(){
+    if (S.masteryGrade < S.passingGrade) S.masteryGrade = S.passingGrade;
+    save();
+    state.courses.forEach(c => { if (['pass','mastery','fail'].includes(c.status)) buildSchedule(c); });
+    save(); renderAll();
+    toast('ok','Pengaturan disimpan','Jadwal yang belum dikerjakan dihitung ulang.');
+  }
+  bindNum('#set_pg','passingGrade',1,100); bindNum('#set_mg','masteryGrade',1,100);
+  bindLad('#set_lstd','ladderStandard'); bindLad('#set_lmst','ladderMastery');
+  bindNum('#set_hour','reviewHour',0,23, updateCount); bindNum('#set_min','reviewMinute',0,59, updateCount);
+  bindNum('#set_dur','durationMin',5,240, updateCount); bindNum('#set_alarm','alarmMin',0,1440, updateCount);
+  q('#set_compress').onchange = e => { S.autoCompress = e.target.checked; persist(); };
+  q('#set_alarm2').onchange  = e => { S.alarmAtTime = e.target.checked; persist(); };
+  q('#set_ws').onchange      = e => { S.weekStart = Number(e.target.value); save(); renderAll(); };
+  q('#importFile').onchange  = e => { if (e.target.files[0]) importJSON(e.target.files[0]); e.target.value=''; };
+  q('#ics_future').onclick   = () => exportICS(selCourses(), { fromISO: todayISO(), includeDone: q('#ics_done').checked });
+  q('#ics_course').onchange  = updateCount;
+  q('#ics_done').onchange    = updateCount;
+  function selCourses(){ const id = q('#ics_course').value; const c = id ? [byId(id)].filter(Boolean) : null; return c; }
+  function updateCount(){
+    const { count } = buildICS(selCourses(), { includeDone: q('#ics_done').checked, fromISO: todayISO() });
+    const el = q('#ics_count'); if (el) el.textContent = count + ' event';
+  }
+  updateCount();
+  bindActions();
+}
+
+/* ============================== RENDER ============================== */
+function renderView(){
+  const map = { dash:renderDash, courses:renderCourses, calendar:renderCalendar, method:renderMethod, settings:renderSettings };
+  $$('.view').forEach(v => v.classList.remove('active'));
+  const el = $('#view-' + route.view);
+  if (el) el.classList.add('active');
+  (map[route.view] || renderDash)();
+}
+function renderAll(){ renderNav(); renderActions(); renderView(); }
+
+/* ============================== TEMA ============================== */
+function applyTheme(t){
+  document.documentElement.setAttribute('data-theme', t);
+  const lab = $('#themeLabel'); if (lab) lab.textContent = t === 'dark' ? 'Mode Terang' : 'Mode Gelap';
+  const meta = document.querySelector('meta[name=theme-color]');
+  if (meta) meta.setAttribute('content', t === 'dark' ? '#0f1119' : '#4f46e5');
+}
+function toggleTheme(){
+  const cur = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  applyTheme(cur);
+  try { localStorage.setItem(THEME_KEY, cur); } catch(e){}
+}
+
+/* ============================== DATA CONTOH ============================== */
+function seedDemo(){
+  const t = todayISO();
+  const mk = (name, lecturer, credits, color, exam, topics, score, daysAgo) => {
+    const c = { id:uid(), name, lecturer, credits, color, location:'', examDate:exam,
+      passingGrade:null, masteryGrade:null, status:'ungraded', lastScore:null, attempts:[], schedule:[], history:[],
+      topics: topics.map(x=>({id:uid(), name:x[0], weight:1, score:null, _s:x[1]})),
+      createdAt:new Date().toISOString(), createdAtISO:addDays(t,-daysAgo), baseDate:addDays(t,-daysAgo) };
+    const ts = {}; c.topics.forEach(x => { if (x._s!=null) ts[x.id] = x._s; });
+    if (score != null) recordScore(c, { date: addDays(t,-daysAgo), score, topicScores: ts });
+    else { c.topics.forEach(x=>delete x._s); buildSchedule(c); }
+    return c;
+  };
+  const demo = [
+    mk('Struktur Data','Dr. Ayu Pratiwi',3,'#4f46e5', addDays(t,26), [['Array & Linked List',92],['Stack & Queue',88],['Tree & Traversal',74],['Graph & BFS/DFS',61],['Hashing',83]], 82, 12),
+    mk('Kalkulus II','Prof. Bambang Setiaji',4,'#e0405f', addDays(t,19), [['Integral Parsial',68],['Integral Trigonometri',55],['Deret Tak Hingga',72],['Persamaan Diferensial',49]], 63, 4),
+    mk('Basis Data','Rina Wijaya, M.Kom.',3,'#0f9d6e', addDays(t,40), [['Model ER & Normalisasi',95],['SQL Query',91],['Transaksi & ACID',87],['Indexing',90]], 91, 8),
+    mk('Statistika','Dr. Hendra Kusuma',3,'#c97a05', null, [['Distribusi Normal',78],['Uji Hipotesis',71],['Regresi Linear',80],['ANOVA',66]], 76, 2),
+    mk('Jaringan Komputer','Ir. Siti Rahmawati',3,'#1f7ae0', addDays(t,55), [['OSI & TCP/IP',84],['Subnetting',58],['Routing',77],['Keamanan Jaringan',81]], null, 1),
+  ];
+  state.courses = demo;
+  // tandai sebagian sesi sudah selesai supaya terlihat progresnya
+  const c0 = demo[0];
+  (c0.schedule||[]).filter(s=>s.kind==='review' && s.due < t).forEach(s => { s.state='done'; s.rating = s.rung<=2?'easy':'hard'; s.doneDate = s.due; });
+  logAct('demo','Data contoh dimuat (5 mata kuliah)');
+  save(); renderAll();
+  toast('ok','Data contoh dimuat','5 matkul dengan berbagai kondisi: tuntas, mastery, belum tuntas, dan belum dinilai.');
+}
+
+/* ============================== API PUBLIK ==============================
+   Dipakai untuk debugging / integrasi dari console browser.
+   Contoh:  Jeda.state.courses            -> lihat semua data
+            Jeda.buildICS(null).text      -> cetak isi file .ics
+            Jeda.exportICS(null)          -> unduh kalender
+   ====================================================================== */
+window.Jeda = {
+  get state(){ return state; },
+  set state(v){ state = v; save(); renderAll(); },
+  save, load: () => { state = load(); renderAll(); },
+  reset(){ state = defaultState(); save(); renderAll(); },
+  buildSchedule, recordScore, completeItem, buildICS, exportICS, exportJSON, importJSON,
+  gradeOf, pgOf, mgOf, ladderOf, nextItem, dueToday, overdue, upcoming, allEvents,
+  seedDemo, go, RESEARCH, version: '1.0.0',
+};
+
+/* ============================== PWA: INSTAL & OFFLINE ============================== */
+let deferredPrompt = null;
+const isStandalone = () => { try { return matchMedia('(display-mode: standalone)').matches || navigator.standalone === true; } catch(e){ return false; } };
+function pwaStatus(){
+  if (isStandalone()) return { cls:'b-ok',  text:'terinstal sebagai aplikasi' };
+  if (!/^https?:$/.test(location.protocol)) return { cls:'b-bad', text:'file lokal — sajikan via https:// agar bisa diinstal & offline' };
+  if (deferredPrompt) return { cls:'b-ok',  text:'siap diinstal' };
+  if ('serviceWorker' in navigator) return { cls:'b-mute', text:'siap — prompt muncul otomatis / lewat menu browser' };
+  return { cls:'b-mute', text:'browser tidak mendukung instalasi' };
+}
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault(); deferredPrompt = e;
+  $$('.js-install').forEach(b => b.classList.remove('hide'));
+});
+window.addEventListener('appinstalled', () => {
+  deferredPrompt = null;
+  $$('.js-install').forEach(b => b.classList.add('hide'));
+  toast('ok','Aplikasi terinstal','Jeda sekarang ada di layar utama dan tetap bisa dibuka tanpa internet.');
+  renderAll();
+});
+function installApp(){
+  if (deferredPrompt){ deferredPrompt.prompt(); deferredPrompt.userChoice.then(() => { deferredPrompt = null; }); return; }
+  const ios = /iphone|ipad|ipod/i.test(navigator.userAgent || '');
+  openModal({
+    title:'Instal Jeda di perangkat ini',
+    body: (ios
+      ? `<ol style="margin:0;padding-left:20px;font-size:13px;color:var(--ink-2);line-height:1.8">
+          <li>Buka halaman ini di <b>Safari</b> (instalasi iOS hanya bekerja dari Safari).</li>
+          <li>Ketuk tombol <b>Bagikan</b> (ikon kotak dengan panah ke atas).</li>
+          <li>Pilih <b>Tambahkan ke Layar Utama</b> → <b>Tambahkan</b>.</li>
+          <li>Ikon Jeda muncul di layar utama dan terbuka fullscreen seperti aplikasi native.</li>
+        </ol>`
+      : `<ol style="margin:0;padding-left:20px;font-size:13px;color:var(--ink-2);line-height:1.8">
+          <li>Buka halaman ini di <b>Chrome / Edge</b>.</li>
+          <li>Ketuk menu <b>⋮</b> (atau ⋯ di desktop) → <b>Instal aplikasi</b> / <b>Tambahkan ke layar utama</b>.</li>
+          <li>Setuju pada dialog yang muncul.</li>
+          <li>Jeda berjalan di jendela sendiri, tanpa address bar, dan tetap bisa offline.</li>
+        </ol>`) +
+        `<div class="banner info" style="margin-top:14px;padding:11px 13px">${icon('info',2.1)}<div>
+          <span>Instalasi butuh halaman disajikan lewat <b>https://</b> (mis. Netlify/GitHub Pages). Kalau kamu membuka file ini langsung dari penyimpanan, ikuti panduan di <b>DEPLOY.md</b>.</span></div></div>`,
+    foot:`<button class="btn btn-primary" data-close>Mengerti</button>`
+  });
+}
+/*__SW_REGISTER_START__*/
+if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').then(reg => {
+      reg.addEventListener('updatefound', () => {
+        const nw = reg.installing;
+        if (!nw) return;
+        nw.addEventListener('statechange', () => {
+          if (nw.state === 'installed' && navigator.serviceWorker.controller){
+            openModal({ title:'Versi baru tersedia',
+              body:`<p class="small" style="color:var(--ink-2);line-height:1.6">Jeda versi terbaru sudah diunduh di latar belakang.
+                Muat ulang halaman untuk memakainya. Datamu aman — semuanya tersimpan di perangkat ini, bukan di server.</p>`,
+              foot:`<button class="btn" data-close>Nanti saja</button>
+                    <button class="btn btn-primary" id="swReload">Muat ulang sekarang</button>`,
+              onMount(r){ r.querySelector('#swReload').onclick = () => location.reload(); } });
+          }
+        });
+      });
+    }).catch(() => {});
+  });
+}
+/*__SW_REGISTER_END__*/
+
+/* ============================== INIT ============================== */
+(function init(){
+  let theme = 'light';
+  try { theme = localStorage.getItem(THEME_KEY) || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'); } catch(e){}
+  applyTheme(theme);
+
+  document.addEventListener('click', e => {
+    const b = e.target.closest('[data-act],[data-go]');
+    if (!b) return;
+    if (b.dataset.go) { e.preventDefault(); go(b.dataset.go); }
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeModal();
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k'){ e.preventDefault(); go('courses'); setTimeout(()=>{const q=$('#q'); if(q) q.focus();},60); }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'n'){ e.preventDefault(); courseModal(); }
+  });
+
+  // migrasi ringan: pastikan setiap matkul punya field yang dibutuhkan
+  state.courses.forEach(c => {
+    c.attempts = c.attempts || []; c.schedule = c.schedule || []; c.topics = c.topics || [];
+    c.history = c.history || [];
+    if (!c.baseDate) c.baseDate = c.lastScoreDate || c.createdAtISO || todayISO();
+    if (!c.status) c.status = c.lastScore == null ? 'ungraded' : gradeOf(c.lastScore, c).tier;
+    if (c.examDate && !(c.schedule||[]).length) buildSchedule(c);
+  });
+
+  renderAll();
+  bindActions();
+
+  // sapaan + pengingat in-app saat dibuka
+  setTimeout(() => {
+    const due = actionable(dueToday()).length, over = overdue().length;
+    if (!state.courses.length) toast('info','Selamat datang di Jeda','Tambahkan mata kuliah pertama, atau muat data contoh dari dashboard.');
+    else if (over) toast('bad', `${over} review terlambat`, 'Buka tab Hari Ini untuk mengejar ketinggalan.');
+    else if (due) toast('ok', `${due} sesi review hari ini`, 'Klik "Mulai sesi" lalu kerjakan dengan retrieval practice.');
+    if (!Store.live) setTimeout(()=>toast('warn','Penyimpanan tidak aktif','Data hanya bertahan selama tab terbuka. Buka file ini langsung di browser atau pakai Backup JSON.'), 900);
+  }, 500);
+})();
+</script>
+</body>
+</html>
