@@ -552,6 +552,7 @@ function defaultState(){
       autoCompress: true,
       reviewHour: 19, reviewMinute: 0, durationMin: 30,
       alarmMin: 30, alarmAtTime: true,
+      notifEnabled: false,
       weekStart: 1,
       exportDone: false,
     },
@@ -1012,6 +1013,107 @@ function importJSON(file){
   rd.readAsText(file);
 }
 
+/* ============================== NOTIFIKASI APLIKASI (POP-UP) ==============================
+   Tiga lapis, tanpa server:
+     1. Saat aplikasi terbuka  : timer lokal -> notifikasi browser pada jam review.
+     2. Saat aplikasi tertutup : Periodic Background Sync (Chrome/Edge, PWA ter-install)
+                                 membaca snapshot agenda yang ditulis ke CacheStorage.
+     3. Lintas perangkat       : export .ics (tetap tersedia, paling andal).
+   ============================================================================ */
+const NOTIF_KEY = 'jeda.notified.v1';
+const ICON_URI = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='112' fill='%234f46e5'/%3E%3Ccircle cx='256' cy='256' r='132' fill='none' stroke='white' stroke-width='40' stroke-dasharray='92 52'/%3E%3C/svg%3E";
+const notifSupported = () => ('Notification' in window);
+const notifPermission = () => notifSupported() ? Notification.permission : 'unsupported';
+async function requestNotifPermission(){
+  if (!notifSupported()) return 'unsupported';
+  try { return await Notification.requestPermission(); } catch(e){ return Notification.permission; }
+}
+const stableKey = e => (e.course && e.course.id ? `${e.course.id}-c${e.course.cycle||1}-${e.kind}${e.rung}` : e.id);
+
+function agendaSnapshot(){
+  const t = todayISO(), st = state.settings;
+  const pend = actionable(allEvents()).filter(e => e.state === 'pending' && e.due <= t);
+  const map = e => ({ id: stableKey(e), course: e.course.name,
+    label: e.kind==='remedial' ? 'Belajar ulang + tes ulang' : 'Review ' + e.label, due: e.due });
+  return {
+    generatedAt: new Date().toISOString(), date: t,
+    reviewTime: String(st.reviewHour).padStart(2,'0') + ':' + String(st.reviewMinute).padStart(2,'0'),
+    dueToday: pend.filter(e => e.due === t).map(map),
+    overdue : pend.filter(e => e.due <  t).map(map),
+  };
+}
+/** Snapshot agenda untuk dibaca service worker (localStorage tidak terjangkau dari SW). */
+function writeAgendaForSW(){
+  if (!('caches' in window)) return;
+  try {
+    caches.open('jeda-data-v1').then(c => c.put(
+      new Request('./agenda.json'),
+      new Response(JSON.stringify(agendaSnapshot()), { headers:{ 'Content-Type':'application/json' } })
+    )).catch(() => {});
+  } catch(e){}
+}
+function notifiedMap(){ try { return JSON.parse(localStorage.getItem(NOTIF_KEY) || '{}'); } catch(e){ return {}; } }
+function markNotified(key, day){ const m = notifiedMap(); m[key] = day || todayISO();
+  try { localStorage.setItem(NOTIF_KEY, JSON.stringify(m)); } catch(e){} }
+
+async function showAppNotification(title, body, tag){
+  if (!notifSupported() || Notification.permission !== 'granted') return false;
+  const opts = { body, tag: tag || 'jeda', icon: ICON_URI, badge: ICON_URI, data:{ url:'./' } };
+  try {
+    const reg = ('serviceWorker' in navigator) ? await navigator.serviceWorker.getRegistration() : null;
+    if (reg && reg.showNotification){ await reg.showNotification(title, opts); return true; }
+  } catch(e){}
+  try { new Notification(title, opts); return true; } catch(e){ return false; }
+}
+
+let notifTimers = [];
+/** Jadwalkan pop-up untuk semua sesi yang jatuh tempo hari ini (selama aplikasi terbuka). */
+function scheduleLocalReminders(){
+  notifTimers.forEach(clearTimeout); notifTimers = [];
+  if (!state.settings.notifEnabled || notifPermission() !== 'granted') return;
+  const st = state.settings, t = todayISO(), now = new Date(), seen = notifiedMap();
+  actionable(allEvents()).filter(e => e.state === 'pending' && e.due <= t).forEach(e => {
+    const key = stableKey(e);
+    const dueAt = parseISO(e.due); dueAt.setHours(st.reviewHour, st.reviewMinute, 0, 0);
+    const ms = dueAt - now;
+    const title = e.due < t ? 'Review terlambat: ' + e.course.name
+              : (ms > 0 ? 'Sebentar lagi: ' + e.course.name : 'Waktunya review: ' + e.course.name);
+    const body  = (e.kind === 'remedial' ? 'Belajar ulang + tes ulang' : 'Review ' + e.label)
+                + ' • ' + IDFmt.long.format(parseISO(e.due))
+                + (e.due < t ? ` • terlambat ${diffDays(e.due, t)} hari` : '');
+    if (ms > 0){
+      if (seen[key] === t) return;
+      notifTimers.push(setTimeout(() => { markNotified(key, t); showAppNotification(title, body, 'jeda-' + key); }, ms));
+    } else if (seen[key] !== t){
+      notifTimers.push(setTimeout(() => { markNotified(key, t); showAppNotification(title, body, 'jeda-' + key); },
+        2000 + notifTimers.length * 1200));
+    }
+  });
+}
+
+/** Pengingat harian saat aplikasi TERTUTUP (Chrome/Edge + PWA ter-install). */
+async function setupPeriodicReminder(enable){
+  if (!('serviceWorker' in navigator)) return { ok:false, why:'unsupported' };
+  let reg = null;
+  try { reg = await navigator.serviceWorker.ready; } catch(e){ return { ok:false, why:'nosw' }; }
+  if (!reg || !reg.periodicSync) return { ok:false, why:'unsupported' };
+  try {
+    if (enable) await reg.periodicSync.register('jeda-daily', { minInterval: 24 * 60 * 60 * 1000 });
+    else await reg.periodicSync.unregister('jeda-daily');
+    const tags = await reg.periodicSync.getTags();
+    return { ok:true, tags };
+  } catch(e){ return { ok:false, why:'denied' }; }
+}
+async function periodicStatus(){
+  if (!('serviceWorker' in navigator)) return 'unsupported';
+  try {
+    const reg = await navigator.serviceWorker.getRegistration();
+    if (!reg || !reg.periodicSync) return 'unsupported';
+    const tags = await reg.periodicSync.getTags();
+    return tags.includes('jeda-daily') ? 'on' : 'off';
+  } catch(e){ return 'unsupported'; }
+}
+
 /* ============================== IKON ============================== */
 const IC = {
   today:'<path d="M3 5h18M3 10h18M5 5v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V5"/><path d="M9 15l2 2 4-4"/>',
@@ -1274,7 +1376,7 @@ function eventRow(e, big){
   const badge = e.kind === 'exam' ? `<span class="badge b-warn">${icon('target')}UJIAN</span>`
     : e.kind === 'remedial' ? `<span class="badge b-bad">${icon('refresh')}Belajar ulang + tes</span>`
     : done ? `<span class="badge b-mute">${icon('check')}Selesai${e.rating?' • '+rateLabel(e.rating):''}</span>`
-    : isOver ? `<span class="badge b-bad">Terlambat ${-diffDays(e.due, todayISO())} hr</span>`
+    : isOver ? `<span class="badge b-bad">Terlambat ${diffDays(e.due, todayISO())} hr</span>`
     : `<span class="badge b-brand">Tahap ${e.label}</span>`;
   const act = done ? `<button class="btn btn-sm" data-act="review" data-id="${c.id}" data-item="${e.id}">Lihat</button>`
     : e.kind === 'exam' ? `<button class="btn btn-sm" data-act="export-ics-one" data-id="${c.id}">Export</button>`
@@ -1460,7 +1562,7 @@ function detailBody(c){
             ${s.offset!=null?`<span class="muted">hari ke-${s.offset} sejak tes</span>`:''}
             ${s.state==='done'?`<span class="badge b-mute">selesai${s.rating?' • '+rateLabel(s.rating):''} ${s.doneDate?IDFmt.short.format(parseISO(s.doneDate)):''}</span>`:''}
             ${s.state==='skipped'?`<span class="badge b-mute">dilewati</span>`:''}
-            ${isOver?`<span class="badge b-bad">terlambat ${-diffDays(s.due,todayISO())} hr</span>`:''}</div>
+            ${isOver?`<span class="badge b-bad">terlambat ${diffDays(s.due,todayISO())} hr</span>`:''}</div>
         </div>
         <div class="acts">${s.state==='pending'&&s.kind==='review'?`<button class="btn btn-sm btn-primary" data-act="review" data-id="${c.id}" data-item="${s.id}">Mulai</button>`:''}</div>
       </div>`;
@@ -2081,6 +2183,22 @@ function renderSettings(){
           4. Sesi sudah dikerjakan? Coret/hapus event-nya di aplikasi kalender; status resminya tetap tercatat di Jeda.</span></div></div>
       </div></div>
 
+    <div class="card"><div class="card-head"><h3>${icon('spark',2)}</h3><h3>Notifikasi aplikasi (pop-up)</h3></div>
+      <div style="padding:16px 18px;display:flex;flex-direction:column;gap:11px">
+        <div class="kv"><span class="k">Izin notifikasi browser</span><span class="v" id="npWrap"></span></div>
+        <button class="btn btn-sm hide" id="npAsk">${icon('check',2.4)}Izinkan notifikasi</button>
+        <label style="display:flex;gap:9px;align-items:flex-start;cursor:pointer">
+          <input type="checkbox" id="set_notif" ${S.notifEnabled?'checked':''} style="margin-top:3px;width:16px;height:16px;accent-color:var(--brand)">
+          <span><b class="small">Pop-up saat ada review jatuh tempo</b><br>
+          <span class="xsmall muted">Muncul selagi aplikasi terbuka, tepat di jam review (${String(S.reviewHour).padStart(2,'0')}:${String(S.reviewMinute).padStart(2,'0')}), plus sekali sehari untuk review terlambat.</span></span></label>
+        <div class="kv"><span class="k">Pengingat harian latar belakang<br><span class="xsmall muted" style="font-weight:500">(aplikasi tertutup)</span></span><span class="v" id="psWrap"></span></div>
+        <div class="row">
+          <button class="btn btn-sm" id="npTest">${icon('spark')}Kirim notifikasi uji</button>
+          <button class="btn btn-sm hide" id="psOn">Aktifkan pengingat harian</button>
+        </div>
+        <p class="xsmall muted" style="line-height:1.6">Pengingat latar belakang memakai Periodic Background Sync: tersedia di <b>Chrome/Edge</b> (Android & desktop) bila aplikasi sudah ter-install, minimal sekali sehari. <b>Safari/iOS dan Firefox belum mendukung</b> — untuk pop-up saat aplikasi tertutup di sana, tetap pakai export .ics ke Google/Apple Calendar.</p>
+      </div></div>
+
     <div class="card"><div class="card-head"><h3>${icon('cal',2)}</h3><h3>Export ke kalender</h3></div>
       <div style="padding:16px 18px;display:flex;flex-direction:column;gap:9px">
         <p class="xsmall muted" style="line-height:1.6">File .ics berisi seluruh review, sesi belajar ulang, dan ujian — lengkap dengan deskripsi langkah sesi, daftar topik lemah, dan pengingat. Bisa dibuka di Google Calendar, Apple Calendar, atau Outlook.</p>
@@ -2190,6 +2308,56 @@ function renderSettings(){
   q('#ics_future').onclick   = () => exportICS(selCourses(), { fromISO: todayISO(), includeDone: q('#ics_done').checked });
   q('#ics_course').onchange  = updateCount;
   q('#ics_done').onchange    = updateCount;
+
+  /* --- notifikasi aplikasi --- */
+  const paintPerm = () => {
+    const p = notifPermission();
+    const badge = p === 'granted' ? '<span class="badge b-ok">diizinkan</span>'
+      : p === 'denied' ? '<span class="badge b-bad">ditolak — buka izin situs di browser</span>'
+      : p === 'unsupported' ? '<span class="badge b-mute">browser tidak mendukung</span>'
+      : '<span class="badge b-warn">belum diminta</span>';
+    const wEl = q('#npWrap'); if (wEl) wEl.innerHTML = badge;
+    const ask = q('#npAsk'); if (ask) ask.classList.toggle('hide', p !== 'default');
+    const cb = q('#set_notif'); if (cb) cb.disabled = (p !== 'granted');
+  };
+  const paintPeriodic = async () => {
+    const s = await periodicStatus();
+    const wEl = q('#psWrap');
+    if (wEl) wEl.innerHTML = s === 'on' ? '<span class="badge b-ok">aktif</span>'
+      : s === 'off' ? '<span class="badge b-mute">nonaktif</span>'
+      : '<span class="badge b-mute">tidak didukung browser ini</span>';
+    const on = q('#psOn'); if (on) on.classList.toggle('hide', s !== 'off');
+  };
+  paintPerm(); paintPeriodic();
+  q('#npAsk').onclick = async () => {
+    const p = await requestNotifPermission();
+    paintPerm();
+    if (p === 'granted'){
+      toast('ok','Notifikasi diizinkan','Pop-up akan muncul saat ada review jatuh tempo.');
+      q('#set_notif').checked = true; S.notifEnabled = true; save();
+      setupPeriodicReminder(true).then(paintPeriodic);
+      showAppNotification('Jeda siap mengingatkan', 'Notifikasi uji berhasil. Pop-up berikutnya muncul otomatis saat jam review.', 'jeda-test');
+    } else toast('bad','Izin ditolak','Buka kunci ikon di address bar → Izin situs → Notifikasi: izinkan.');
+  };
+  q('#set_notif').onchange = e => {
+    S.notifEnabled = e.target.checked; save();
+    if (S.notifEnabled){ setupPeriodicReminder(true).then(paintPeriodic); scheduleLocalReminders(); }
+    else setupPeriodicReminder(false).then(paintPeriodic);
+    toast(S.notifEnabled?'ok':'warn', S.notifEnabled?'Pop-up dinyalakan':'Pop-up dimatikan',
+      S.notifEnabled?'Review jatuh tempo hari ini akan langsung dipop-upkan.':'');
+  };
+  q('#npTest').onclick = async () => {
+    const okN = await showAppNotification('Notifikasi uji Jeda',
+      'Beginilah bentuk pop-up pengingat review. Jika tidak muncul, cek izin notifikasi browser.', 'jeda-test');
+    toast(okN?'ok':'bad', okN?'Notifikasi uji dikirim':'Gagal mengirim notifikasi',
+      okN?'Lihat pop-up di sistemmu.':'Pastikan izin notifikasi sudah diizinkan.');
+  };
+  q('#psOn').onclick = async () => {
+    const r = await setupPeriodicReminder(true);
+    paintPeriodic();
+    toast(r.ok?'ok':'warn', r.ok?'Pengingat harian aktif':'Belum bisa diaktifkan',
+      r.ok?'Sekali sehari Jeda memeriksa agendamu walau aplikasi tertutup.':'Butuh Chrome/Edge + aplikasi ter-install + izin notifikasi.');
+  };
   function selCourses(){ const id = q('#ics_course').value; const c = id ? [byId(id)].filter(Boolean) : null; return c; }
   function updateCount(){
     const { count } = buildICS(selCourses(), { includeDone: q('#ics_done').checked, fromISO: todayISO() });
@@ -2207,7 +2375,7 @@ function renderView(){
   if (el) el.classList.add('active');
   (map[route.view] || renderDash)();
 }
-function renderAll(){ renderNav(); renderActions(); renderView(); }
+function renderAll(){ renderNav(); renderActions(); renderView(); writeAgendaForSW(); scheduleLocalReminders(); }
 
 /* ============================== TEMA ============================== */
 function applyTheme(t){
@@ -2361,6 +2529,7 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){
 
   renderAll();
   bindActions();
+  if (state.settings.notifEnabled && notifPermission() === 'granted') setupPeriodicReminder(true);
 
   // sapaan + pengingat in-app saat dibuka
   setTimeout(() => {

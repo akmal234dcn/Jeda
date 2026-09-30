@@ -68,3 +68,36 @@ self.addEventListener('fetch', event => {
     })
   );
 });
+
+/* ---------------------------------------------------------------------
+   Pengingat harian saat aplikasi tertutup (Periodic Background Sync).
+   Membaca snapshot agenda yang ditulis halaman ke CacheStorage.
+   --------------------------------------------------------------------- */
+self.addEventListener('periodicsync', event => {
+  if (event.tag !== 'jeda-daily') return;
+  event.waitUntil((async () => {
+    try {
+      const hit = await caches.match('./agenda.json');
+      if (!hit) return;
+      const a = await hit.json();
+      const n = (a.dueToday || []).length, ov = (a.overdue || []).length;
+      if (!n && !ov) return;
+      const rows = [...(a.overdue || []).slice(0,3), ...(a.dueToday || []).slice(0,3)]
+        .map(x => '\u2022 ' + x.course + ' \u2014 ' + x.label).join('\n');
+      const more = (n + ov) > 6 ? '\n\u2022 +' + ((n + ov) - 6) + ' lainnya' : '';
+      await self.registration.showNotification(
+        'Jeda \u2014 ' + (ov ? ov + ' review terlambat' + (n ? ' + ' + n + ' hari ini' : '') : n + ' review hari ini'),
+        { body: rows + more, icon: './icons/icon-192.png', badge: './icons/icon-192.png',
+          tag: 'jeda-daily', data: { url: './' } });
+    } catch(e){}
+  })());
+});
+
+/* Klik pop-up -> buka/fokus aplikasi */
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  event.waitUntil(clients.matchAll({ type:'window', includeUncontrolled:true }).then(list => {
+    for (const c of list){ if ('focus' in c) return c.focus(); }
+    return clients.openWindow('./');
+  }));
+});

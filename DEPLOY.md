@@ -35,14 +35,35 @@ utama dengan ikon sendiri, terbuka *fullscreen* tanpa address bar, dan
 > versi portabel untuk dikirim lewat WA/email dan dibuka langsung — kalau di-upload
 > sendirian aplikasinya tetap jalan, tapi fitur install & offline-nya tidak ikut.
 
-### Opsi 2 — GitHub Pages
-1. Buat repo baru, mis. `jeda`.
-2. Upload **isi folder `deploy/`** ke root repo (bukan foldernya, tapi isinya:
-   `index.html`, `manifest.webmanifest`, `sw.js`, `icons/`).
-3. *Settings → Pages → Branch:* `main` / folder `/ (root)` → **Save**.
-4. Tunggu 1–2 menit, buka `https://<username>.github.io/jeda/`.
-   > Penting: service worker memakai `scope: "./"` sehingga tetap aman walau
-   > di-host di subfolder seperti di atas.
+### Opsi 2 — GitHub Pages (tanpa git CLI, semuanya lewat browser)
+1. Masuk ke <https://github.com> (buat akun dulu bila belum).
+2. Klik **+ → New repository** → beri nama mis. `jeda` → pilih **Public**
+   (Pages gratis hanya untuk repo public) → **Create repository**.
+3. **Ekstrak `jeda-deploy.zip`** di laptop, lalu di halaman repo klik
+   **uploading an existing file** → **seret isi hasil ekstrak**:
+   `index.html`, `manifest.webmanifest`, `sw.js`, `DEPLOY.md`, dan **folder `icons/`**
+   (drag folder utuh supaya strukturnya ikut).
+   > Folder `icons/` tidak ikut terseret? Upload 4 file ikon satu-satu, dan saat
+   > mengetik nama file tulis `icons/icon-192.png` dst. — GitHub membuat foldernya otomatis.
+4. Klik **Commit changes**.
+5. Buka tab **Settings → Pages** → *Source:* **Deploy from a branch** →
+   branch **`main`**, folder **`/ (root)`** → **Save**.
+6. Tunggu 1–3 menit. URL muncul di bagian atas halaman Pages:
+   `https://<username>.github.io/jeda/`. Tab **Actions** menunjukkan workflow
+   *pages build and deployment* berwarna hijau saat selesai.
+7. Buka URL itu di HP → install (lihat bagian B).
+
+> Struktur repo yang benar (semua di root, bukan di dalam folder `deploy/`):
+> ```
+> repo-jeda/
+> ├── index.html
+> ├── manifest.webmanifest
+> ├── sw.js
+> ├── DEPLOY.md
+> └── icons/  (4 file png)
+> ```
+> Manifest & service worker memakai path relatif (`./`), jadi aman walau
+> situs berada di subfolder `/<nama-repo>/`.
 
 ### Opsi 3 — Cloudflare Pages
 1. <https://pages.cloudflare.com> → *Create a project → Direct upload*.
