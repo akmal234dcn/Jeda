@@ -535,6 +535,14 @@ const RESEARCH = {
   ladderMastery : [3, 7, 16, 35, 70],
   maintenance   : [90, 180],
   remedialGapDays: 1,
+  /* Ambang tes sesi (formatif, rendah-tarak):
+     >= 85%  -> retrieval berhasil di zona optimum (Wilson dkk. 2019) => naik tahap
+     60-84%  -> interval sedikit kepanjangan => ulangi tahap dgn celah setengah
+     <  60%  -> retrieval gagal => kembali ke tahap 1 besok
+     Skor hanya memilih satu dari tiga keputusan terjadwal yang sudah dibatasi,
+     tidak mengubah ladder secara liar (mitigasi noise tes kecil). */
+  sessionEasy: 85,
+  sessionFail: 60,
   maxRemedialAttempts: 3,
 };
 
@@ -745,7 +753,9 @@ function sessionPlan(c, minutes){
   const scope = new Set(near ? examScopeIds(c, near) : topics.map(x => x.id));
   const daysTo = near ? diffDays(t, near.date) : null;
   const rows = topics.map(tp => {
-    const weakness = tp.score == null ? 1 : clamp(1 - tp.score/100, 0, 1);
+    const baseW = tp.score == null ? 1 : clamp(1 - tp.score/100, 0, 1);
+    const failBoost = (tp.lastFailed && diffDays(tp.lastFailed, t) <= 14) ? 0.25 : 0;
+    const weakness = clamp(baseW + failBoost, 0, 1);
     const inScope  = scope.has(tp.id);
     const prox     = near ? (inScope ? clamp(1 - daysTo/30, 0.3, 1) : 0.15) : 0.3;
     const since    = tp.lastReviewed ? diffDays(tp.lastReviewed, t) : (c.baseDate ? diffDays(c.baseDate, t) : 7);
@@ -818,11 +828,22 @@ function recordScore(course, { date, score, topicScores }){
 }
 
 /** Selesaikan satu sesi review dengan penilaian diri. */
-function completeItem(course, itemId, rating){
+function completeItem(course, itemId, rating, test){
   const idx = (course.schedule||[]).findIndex(s => s.id === itemId);
   if (idx < 0) return null;
   const item = course.schedule[idx];
   const doneDate = todayISO();
+  // Tes sesi (opsional): skor objektif menggantikan penilaian diri,
+  // dipetakan ke tiga keputusan jadwal yang sudah dibatasi.
+  if (test && test.total > 0){
+    const sc = clamp(Math.round(test.correct / test.total * 100), 0, 100);
+    item.test = { correct:test.correct, total:test.total, score:sc, wrong:(test.wrong||[]).slice() };
+    rating = sc >= RESEARCH.sessionEasy ? 'easy' : sc >= RESEARCH.sessionFail ? 'hard' : 'again';
+    (test.wrong||[]).forEach(id => {
+      const tp = (course.topics||[]).find(x => x.id === id);
+      if (tp) tp.lastFailed = doneDate;   // bab ini diprioritaskan 14 hari ke depan
+    });
+  }
   item.state = 'done'; item.rating = rating; item.doneDate = doneDate;
 
   if (item.kind === 'remedial'){ save(); return item; }
@@ -976,7 +997,8 @@ function eventDescription(c, ev){
       lines.push('', 'Kerjakan berselang-seling antar bab (interleaving), bukan bab demi bab sampai tuntas.');
     }
     lines.push('');
-    lines.push('Selesai? Buka Jeda lalu nilai sesi ini: Lancar / Agak sulit / Lupa.');
+    lines.push('Siapkan 3-5 soal latihan sendiri untuk tes sesi.');
+    lines.push('Selesai? Buka Jeda, isi hasil tes sesi (benar/dari), lalu simpan penilaian.');
   }
   if (c.lecturer) lines.push('', `Dosen: ${c.lecturer}`);
   return lines.join('\n');
@@ -1624,6 +1646,7 @@ function detailBody(c){
           <div class="meta"><span>${IDFmt.long.format(parseISO(s.due))}</span><span class="muted">${relDay(s.due)}</span>
             ${s.offset!=null?`<span class="muted">hari ke-${s.offset} sejak tes</span>`:''}
             ${s.state==='done'?`<span class="badge b-mute">selesai${s.rating?' • '+rateLabel(s.rating):''} ${s.doneDate?IDFmt.short.format(parseISO(s.doneDate)):''}</span>`:''}
+            ${s.test?`<span class="badge b-brand">tes sesi ${s.test.correct}/${s.test.total} (${s.test.score}%)</span>`:''}
             ${s.state==='skipped'?`<span class="badge b-mute">dilewati</span>`:''}
             ${isOver?`<span class="badge b-bad">terlambat ${diffDays(s.due,todayISO())} hr</span>`:''}</div>
         </div>
@@ -1964,7 +1987,21 @@ function reviewModal(c, courseId, itemId){
     <button class="rate r-ok" data-rate="easy"><b>Lancar</b><span>Ingat hampir semua. Lanjut ke tahap ${nextRungLabel(c, ev, 'easy')} (${nextGapText(c,ev,'easy')}).</span></button>
     <button class="rate r-warn" data-rate="hard"><b>Agak sulit</b><span>Ingat tapi perlu mikir. Ulangi tahap ini dengan jeda lebih pendek (${nextGapText(c,ev,'hard')}).</span></button>
     <button class="rate r-bad" data-rate="again"><b>Lupa</b><span>Hampir tidak ingat. Kembali ke tahap 1, review lagi ${nextGapText(c,ev,'again')}.</span></button>
-  </div>`}`;
+  </div>
+
+  <div class="sec-title">Tes sesi — 3–5 soal dari materimu sendiri (dianjurkan, boleh dilewati)</div>
+  <div class="row">
+    <div class="field"><label>Benar</label><input class="input" id="t_correct" type="number" min="0" max="50" placeholder="mis. 4"></div>
+    <div class="field"><label>Dari soal</label><input class="input" id="t_total" type="number" min="1" max="50" placeholder="mis. 5"></div>
+  </div>
+  <div id="t_verdict" class="xsmall muted" style="margin-top:9px;padding:10px 12px;border:1px dashed var(--line);border-radius:10px;line-height:1.55">
+    Kerjakan 3–5 soal latihan tanpa catatan, koreksi yang salah, lalu isi hasilnya di sini.
+    Skor objektif ini menggantikan penilaian diri: ≥ ${RESEARCH.sessionEasy}% → <b>Lancar</b>,
+    ${RESEARCH.sessionFail}–${RESEARCH.sessionEasy-1}% → <b>Agak sulit</b>, &lt; ${RESEARCH.sessionFail}% → <b>Lupa</b>.</div>
+  ${(c.topics||[]).length?`<div class="xsmall muted" style="margin:10px 0 5px;font-weight:800;letter-spacing:.6px">TANDAI BAB YANG MASIH SALAH (OPSIONAL)</div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap" id="t_wrong">${c.topics.map(t=>`<button type="button" class="chip" data-wrong="${t.id}">${esc(t.name)}</button>`).join('')}</div>`:''}
+  <p class="xsmall muted" style="margin-top:10px;line-height:1.6">Tes ini <b>formatif & rendah-tarak</b>: tidak menghukum, hanya menggeser jadwal.
+  Wajib koreksi soal yang salah <b>sebelum</b> menutup sesi — tanpa feedback, kesalahan ikut menguat (Pashler dkk. 2005).</p>`}`;
 
   openModal({
     title: esc(c.name),
@@ -1979,17 +2016,48 @@ function reviewModal(c, courseId, itemId){
       bindActions(r);
       const skipB = r.querySelector('#r_skip');
       if (skipB) skipB.addEventListener('click', () => setTimeout(closeModal, 0));
+      const wrongSet = new Set();
+      $$('#t_wrong [data-wrong]', r).forEach(b => b.onclick = () => {
+        const id = b.dataset.wrong;
+        wrongSet.has(id) ? wrongSet.delete(id) : wrongSet.add(id);
+        b.style.background = wrongSet.has(id) ? 'var(--bad)' : '';
+        b.style.color = wrongSet.has(id) ? '#fff' : '';
+      });
+      const readTest = () => {
+        const cor = r.querySelector('#t_correct').value.trim(), tot = r.querySelector('#t_total').value.trim();
+        if (cor === '' || tot === '' || !(Number(tot) > 0)) return null;
+        const correct = clamp(Number(cor), 0, Number(tot));
+        return { correct, total: Number(tot), score: clamp(Math.round(correct/Number(tot)*100),0,100), wrong:[...wrongSet] };
+      };
+      const paintTest = () => {
+        const t = readTest(), box = r.querySelector('#t_verdict');
+        $$('.rate', r).forEach(b => b.classList.remove('sel'));
+        if (!t){ box.innerHTML = `Kerjakan 3–5 soal latihan tanpa catatan, koreksi yang salah, lalu isi hasilnya di sini.
+          Skor objektif ini menggantikan penilaian diri: ≥ ${RESEARCH.sessionEasy}% → <b>Lancar</b>,
+          ${RESEARCH.sessionFail}–${RESEARCH.sessionEasy-1}% → <b>Agak sulit</b>, &lt; ${RESEARCH.sessionFail}% → <b>Lupa</b>.`; return; }
+        const rating = t.score >= RESEARCH.sessionEasy ? 'easy' : t.score >= RESEARCH.sessionFail ? 'hard' : 'again';
+        const btn = r.querySelector(`[data-rate="${rating}"]`); if (btn) btn.classList.add('sel');
+        const ket = rating==='easy' ? 'naik satu tahap dengan celah penuh'
+                  : rating==='hard' ? 'tahap ini diulang dengan celah setengah'
+                  : 'kembali ke tahap 1 besok (retrieval gagal)';
+        box.innerHTML = `Skor tes sesi <b>${t.score}%</b> (${t.correct}/${t.total}) → diperlakukan <b>${rateLabel(rating)}</b>: ${ket}.
+          ${wrongSet.size?`Bab ditandai salah: <b>${esc(c.topics.filter(x=>wrongSet.has(x.id)).map(x=>x.name).join(', '))}</b> — porsinya dinaikkan 14 hari ke depan.`:''}`;
+      };
+      r.querySelector('#t_correct').oninput = paintTest;
+      r.querySelector('#t_total').oninput = paintTest;
+
       $$('[data-rate]', r).forEach(b => b.onclick = () => {
         const rating = b.dataset.rate;
-        const item = completeItem(c, ev.id, rating);
+        const item = completeItem(c, ev.id, rating, readTest());
         const nx = nextItem(c);
         closeModal(); renderAll();
+        const tst = item && item.test ? ` Tes sesi ${item.test.correct}/${item.test.total} (${item.test.score}%).` : '';
         const msg = rating==='again'
           ? `Kembali ke tahap 1. Review lagi ${nx?IDFmt.med.format(parseISO(nx.due))+' ('+relDay(nx.due)+')':'besok'}.`
           : rating==='hard'
           ? `Tahap diulang dengan jeda pendek. Berikutnya ${nx?IDFmt.med.format(parseISO(nx.due))+' ('+relDay(nx.due)+')':'—'}.`
           : nx ? `Tahap berikutnya ${nx.label} pada ${IDFmt.med.format(parseISO(nx.due))} (${relDay(nx.due)}).` : 'Seluruh ladder selesai — materi masuk memori jangka panjang.';
-        toast(rating==='again'?'warn':'ok', `${c.name} — ${rateLabel(rating)}`, msg);
+        toast(rating==='again'?'warn':'ok', `${c.name} — ${rateLabel(rating)}`, msg + tst);
       });
       const un = r.querySelector('#r_undo');
       if (un) un.onclick = () => { undoItem(c, ev.id); closeModal(); renderAll(); toast('warn','Dibatalkan','Sesi dikembalikan ke status belum selesai.'); };
@@ -2227,6 +2295,26 @@ function renderMethod(){
       </div>
     </div>
 
+    <div class="card"><div class="card-head"><h3>${icon('target',2)}</h3><h3>Tes kecil di setiap sesi</h3>
+      <span class="hint">assessment formatif, bukan ujian</span></div>
+      <div style="padding:16px 18px">
+        <p class="small" style="line-height:1.65;color:var(--ink-2)">Setiap sesi review bisa ditutup dengan <b>tes 3–5 soal</b> dari materimu sendiri
+        (kolom <i>benar / dari soal</i> di modal review). Skor itu menggantikan penilaian diri dan memilih satu dari tiga keputusan jadwal:</p>
+        <table class="tier-table" style="margin-top:10px"><thead><tr><th style="width:110px">Skor tes sesi</th><th>Diperlakukan sebagai</th><th>Alasan ilmiah</th></tr></thead><tbody>
+        <tr><td><b class="mono" style="color:var(--ok)">≥ ${'$'}{RESEARCH.sessionEasy}%</b></td><td>Lancar → naik satu tahap</td><td>akurasi di zona belajar optimum (Wilson dkk. 2019)</td></tr>
+        <tr><td><b class="mono" style="color:var(--warn)">${'$'}{RESEARCH.sessionFail}–${'$'}{RESEARCH.sessionEasy-1}%</b></td><td>Agak sulit → tahap diulang, celah setengah</td><td>retrieval berhasil sebagian; interval sedikit kepanjangan</td></tr>
+        <tr><td><b class="mono" style="color:var(--bad)">&lt; ${'$'}{RESEARCH.sessionFail}%</b></td><td>Lupa → kembali ke tahap 1 besok</td><td>retrieval gagal; jejak butuh relearning (savings tetap ada)</td></tr>
+        </tbody></table>
+        <ul class="xsmall muted" style="margin:12px 0 0;padding-left:18px;line-height:1.75">
+          <li><b>Kenapa tes, bukan perasaan?</b> Penilaian diri mudah meleset (<i>illusions of competence</i>, Bjork, Dunlosky &amp; Kornell 2013); skor objektif adalah sampel langsung kekuatan memori.</li>
+          <li><b>Kenapa wajib koreksi dulu?</b> Tanpa feedback, jawaban salah yang ter-retrieval ikut menguat (Pashler dkk. 2005; Butler &amp; Roediger 2008).</li>
+          <li><b>Kenapa tidak mengubah ladder liar?</b> Tes 3–5 soal itu bising; skor hanya memilih keputusan yang sudah dibatasi, tidak menghitung ulang interval dari nol.</li>
+          <li><b>Kenapa boleh dilewati?</b> Tes bersifat formatif &amp; rendah-tarak; memaksa justru menciptakan anxietas dan penghindaran sesi.</li>
+          <li>Bab yang ditandai “masih salah” dinaikkan porsinya selama 14 hari tanpa memalsukan skor tes resminya.</li>
+        </ul>
+      </div>
+    </div>
+
     <div class="card"><div class="card-head"><h3>${icon('brain',2)}</h3><h3>Cara menjalankan sesi review</h3></div>
       <div style="padding:16px 18px">
         <p class="small" style="line-height:1.65;color:var(--ink-2)">Jeda menjadwalkan <i>kapan</i> kamu mengulang. Yang menentukan hasilnya adalah <i>bagaimana</i> kamu mengulang. Roediger &amp; Karpicke (2006) menunjukkan siswa yang berlatih retrieval (menutup buku lalu mencoba mengingat) mengalahkan siswa yang membaca ulang empat kali — 61% vs 40% setelah satu minggu.</p>
@@ -2269,6 +2357,14 @@ function renderMethod(){
          'Latihan matematika yang diacak antar jenis soal menghasilkan performa tes akhir jauh lebih baik daripada latihan diblok per jenis soal. Dasar instruksi "kerjakan berselang-seling antar bab" pada setiap sesi review Jeda.'],
         ['11','Kornell, N., & Bjork, R. A. (2008). "Learning concepts and categories: Is spacing the enemy of induction?" <i>Psychological Science</i>, 19(6), 585–592.',
          'Contoh lain keunggulan penyajian berselang dibanding diblok — memperkuat kebijakan interleaving pada rencana sesi per bab.'],
+        ['12','Pashler, H., Cepeda, N. J., Wixted, J. T., & Rohrer, D. (2005). "When does feedback facilitate learning of words?" <i>Journal of Experimental Psychology: Learning, Memory, and Cognition</i>, 31(1), 3–8.',
+         'Feedback setelah retrieval memperbaiki pembelajaran; tanpa feedback, kesalahan berisiko terkonsolidasi. Dasar aturan "koreksi dulu sebelum menyimpan skor tes sesi".'],
+        ['13','Butler, A. C., & Roediger, H. L. (2008). "Feedback enhances the positive effects and reduces the negative effects of multiple-choice testing." <i>Memory & Cognition</i>, 36, 1587–1596.',
+         'Tes pilihan ganda + feedback memberi manfaat retensi penuh dan menekan efek negatifnya — mendukung tes sesi kecil berdampingan dengan koreksi.'],
+        ['14','Black, P., & Wiliam, D. (1998). "Assessment and Classroom Learning." <i>Assessment in Education: Principles, Policy & Practice</i>, 5(1), 7–74.',
+         'Meta-ulasan assessment formatif: tes frequenti berisiko rendah dengan tindak lanjut adalah salah satu intervensi belajar paling efektif. Dasar framing "tes sesi tidak menghukum, hanya menggeser jadwal".'],
+        ['15','Bjork, R. A., Dunlosky, J., & Kornell, N. (2013). "Self-Regulated Learning: Beliefs, Techniques, and Illusions." <i>Annual Review of Psychology</i>, 64, 417–444.',
+         'Menjelaskan mengapa perasaan "sudah paham" sering meleset — alasan Jeda lebih mempercayai skor tes sesi daripada penilaian diri semata.'],
       ].map(([n,t,d])=>`<div class="cite"><div class="no">${n}</div><div><b>${t}</b><p>${d}</p></div></div>`).join('')}
       </div>
     </div>
