@@ -717,6 +717,61 @@ function weakTopics(c){
   return (c.topics||[]).filter(t => typeof t.score === 'number' && t.score < pg);
 }
 
+/* ==================== CAKUPAN UJIAN & RENCANA SESI BERBOBOT ====================
+   Satu sesi review tidak menyapu semua bab secara rata. Porsi menit tiap bab
+   dihitung dari tiga bobot:
+     0.45 x kelemahan      -> mastery learning: bab di bawah PG wajib diprioritaskan
+     0.35 x kedekatan ujian-> Cepeda dkk. 2008: materi dgn test delay pendek butuh
+                               retrieval lebih rapat sekarang (cakupan ujian terdekat)
+     0.20 x kelamaan diulang-> spacing effect: bab lama tak disentuh makin mudah luruh
+   Bab di luar cakupan ujian terdekat tetap kebagian porsi pemeliharaan (~40%)
+   karena ujian akhir bersifat kumulatif dan lupa terus berjalan.
+   ============================================================================ */
+function courseExams(c){
+  const list = (c.exams||[]).filter(e => e && e.date);
+  if (list.length) return list.slice().sort((a,b) => a.date < b.date ? -1 : 1);
+  if (c.examDate) return [{ id:'legacy', name:'Ujian', date:c.examDate, topicIds:[] }];
+  return [];
+}
+const upcomingExams = c => courseExams(c).filter(e => e.date >= todayISO());
+const nearestExam   = c => upcomingExams(c)[0] || null;
+const examScopeIds  = (c, ex) => (ex && (ex.topicIds||[]).length) ? ex.topicIds : (c.topics||[]).map(t => t.id);
+
+function sessionPlan(c, minutes){
+  const topics = (c.topics||[]).slice();
+  if (!topics.length) return null;
+  const t = todayISO();
+  const near = nearestExam(c);
+  const scope = new Set(near ? examScopeIds(c, near) : topics.map(x => x.id));
+  const daysTo = near ? diffDays(t, near.date) : null;
+  const rows = topics.map(tp => {
+    const weakness = tp.score == null ? 1 : clamp(1 - tp.score/100, 0, 1);
+    const inScope  = scope.has(tp.id);
+    const prox     = near ? (inScope ? clamp(1 - daysTo/30, 0.3, 1) : 0.15) : 0.3;
+    const since    = tp.lastReviewed ? diffDays(tp.lastReviewed, t) : (c.baseDate ? diffDays(c.baseDate, t) : 7);
+    const stale    = clamp(since/14, 0, 1);
+    return { topic: tp, inScope, weakness, w: 0.45*weakness + 0.35*prox + 0.20*stale };
+  }).sort((a,b) => b.w - a.w);
+  const scopeRows = rows.filter(r => r.inScope);
+  const maintRows = rows.filter(r => !r.inScope);
+  const M = minutes || state.settings.durationMin || 30;
+  const scopeMin = maintRows.length ? Math.round(M * 0.6) : M;
+  const alloc = (list, mins) => {
+    if (!list.length || mins <= 0) return [];
+    const tot = list.reduce((s,r) => s + r.w, 0) || 1;
+    let acc = 0;
+    return list.map((r,i) => {
+      let m = (i === list.length-1) ? mins - acc : Math.max(2, Math.round(mins * r.w / tot));
+      m = Math.min(m, mins - acc); acc += m;
+      return { ...r, minutes: m };
+    }).filter(r => r.minutes > 0);
+  };
+  const focus = alloc(scopeRows, scopeMin);
+  return { exam: near, daysTo, focus,
+           maintenance: alloc(maintRows, M - focus.reduce((s,r)=>s+r.minutes,0)),
+           total: M };
+}
+
 /* ============================== INPUT SKOR ============================== */
 
 /**
@@ -771,6 +826,13 @@ function completeItem(course, itemId, rating){
   item.state = 'done'; item.rating = rating; item.doneDate = doneDate;
 
   if (item.kind === 'remedial'){ save(); return item; }
+
+  // bab yang tercakup sesi ini baru saja di-retrieval -> perbarui penanda kelamaan
+  const planDone = sessionPlan(course, state.settings.durationMin);
+  if (planDone) [...planDone.focus, ...planDone.maintenance].forEach(r => {
+    const tp = (course.topics||[]).find(x => x.id === r.topic.id);
+    if (tp) tp.lastReviewed = todayISO();
+  });
 
   const ladder = activeLadder(course);
   const total = totalRungs(ladder);
@@ -902,16 +964,16 @@ function eventDescription(c, ev){
     lines.push('1. Tutup catatan, tulis/ucapkan semua yang kamu ingat dulu.');
     lines.push('2. Baru buka catatan, tandai yang keliru atau hilang.');
     lines.push('3. Ulangi bagian yang salah sekali lagi tanpa melihat.');
-    const w = weakTopics(c);
-    if (w.length){
-      lines.push('');
-      lines.push('Topik yang masih di bawah passing grade — prioritaskan:');
-      w.forEach(t => lines.push(`  • ${t.name} (${t.score}%)`));
-    }
-    const tp = (c.topics||[]).filter(t=>typeof t.score==='number' && t.score>=pgOf(c));
-    if (tp.length){
-      lines.push('');
-      lines.push('Topik sudah tuntas: ' + tp.map(t=>t.name).join(', '));
+    const plan = sessionPlan(c, state.settings.durationMin);
+    if (plan){
+      if (plan.exam) lines.push('', `PRIORITAS ${plan.exam.name.toUpperCase()} (${relDay(plan.exam.date)}):`);
+      lines.push(`Rencana sesi ${plan.total} menit — porsi per bab:`);
+      plan.focus.forEach(r => lines.push(`  • ${r.topic.name} — ${r.minutes} mnt${r.topic.score!=null?` (skor ${r.topic.score}%)`:''}`));
+      if (plan.maintenance.length){
+        lines.push('Pemeliharaan kumulatif:');
+        plan.maintenance.forEach(r => lines.push(`  • ${r.topic.name} — ${r.minutes} mnt${r.topic.score!=null?` (skor ${r.topic.score}%)`:''}`));
+      }
+      lines.push('', 'Kerjakan berselang-seling antar bab (interleaving), bukan bab demi bab sampai tuntas.');
     }
     lines.push('');
     lines.push('Selesai? Buka Jeda lalu nilai sesi ini: Lancar / Agak sulit / Lupa.');
@@ -1480,7 +1542,8 @@ function courseCard(c){
       <div class="kv"><span class="k">Topik</span><span class="v">${(c.topics||[]).length} ${weak.length?`<span class="badge b-warn" style="margin-left:4px">${weak.length} lemah</span>`:''}</span></div>
       <div class="kv"><span class="k">${nx?(nx.kind==='exam'?'Ujian':'Jadwal berikutnya'):'Status'}</span>
         <span class="v" style="color:${nx&&nx.due<todayISO()?'var(--bad)':'inherit'}">${nx?`${IDFmt.short.format(parseISO(nx.due))} • ${relDay(nx.due)}`:(c.status==='fail'?'menunggu tes ulang':(c.lastScore==null?'—':'ladder selesai'))}</span></div>
-      ${c.examDate?`<div class="kv"><span class="k">Tanggal ujian</span><span class="v">${IDFmt.short.format(parseISO(c.examDate))} (${diffDays(todayISO(),c.examDate)} hari)</span></div>`:''}
+      ${courseExams(c).slice(0,2).map(e=>`<div class="kv"><span class="k">${icon('target')} ${esc(e.name)}</span>
+        <span class="v">${IDFmt.short.format(parseISO(e.date))} (${diffDays(todayISO(),e.date)} hari) • ${(e.topicIds||[]).length?e.topicIds.length+' bab':'semua bab'}</span></div>`).join('')}
     </div>
     <div class="course-foot">
       <button class="btn btn-sm" data-act="open-course" data-id="${c.id}">${icon('book')}Detail</button>
@@ -1583,11 +1646,15 @@ function detailBody(c){
 
 /* ============================== MODAL: MATKUL ============================== */
 let topicDraft = [];
+let examDraft = [];
 function courseModal(c){
   const isNew = !c;
   topicDraft = isNew ? [{id:uid(),name:'',weight:1,score:null}]
     : (c.topics||[]).map(t => ({...t}));
   if (isNew && !topicDraft.length) topicDraft.push({id:uid(),name:'',weight:1,score:null});
+  examDraft = isNew ? [{ id:uid(), name:'UTS', date:'', topicIds:[] }]
+    : (c.exams||[]).map(e => ({ ...e, topicIds:(e.topicIds||[]).slice() }));
+  if (!isNew && !examDraft.length && c.examDate) examDraft.push({ id:uid(), name:'Ujian', date:c.examDate, topicIds:[] });
 
   const body = `
   <div class="sec-title">Identitas</div>
@@ -1602,8 +1669,6 @@ function courseModal(c){
   </div>
   <div class="row" style="margin-top:12px">
     <div class="field"><label>Ruang / lokasi</label><input class="input" id="f_loc" placeholder="opsional, masuk ke .ics" value="${esc(c?.location||'')}"></div>
-    <div class="field"><label>Tanggal ujian / tenggat</label><input class="input" id="f_exam" type="date" value="${c?.examDate||''}">
-      <div class="help">Kalau diisi, ladder otomatis dipadatkan agar semua review selesai sebelum ujian (Cepeda dkk. 2008).</div></div>
   </div>
 
   <div class="sec-title">Ambang ketuntasan <span class="muted" style="text-transform:none;letter-spacing:0;font-weight:600">(kosongkan = pakai default)</span></div>
@@ -1618,7 +1683,14 @@ function courseModal(c){
   <div id="topicList"></div>
   <button class="btn btn-sm" id="addTopic" type="button">${icon('plus',2.4)}Tambah topik</button>
   <div class="hr"></div>
-  <p class="xsmall muted">Topik dengan skor di bawah passing grade akan ditandai <b>lemah</b> dan diprioritaskan di setiap sesi review serta di deskripsi event kalender.</p>`;
+  <p class="xsmall muted">Topik dengan skor di bawah passing grade akan ditandai <b>lemah</b> dan diprioritaskan di setiap sesi review serta di deskripsi event kalender.</p>
+
+  <div class="sec-title">Ujian & cakupan materinya</div>
+  <div id="examList"></div>
+  <button class="btn btn-sm" id="addExam" type="button">${icon('plus',2.4)}Tambah ujian (UTS / UAS / kuis)</button>
+  <p class="xsmall muted" style="margin-top:8px;line-height:1.6">Ujian terdekat memadatkan ladder otomatis (Cepeda dkk. 2008).
+  Cakupan ujian menentukan porsi bab tiap sesi review: bab dalam cakupan dapat ±60% menit sesi,
+  sisanya dipakai memelihara bab di luar cakupan agar tidak luruh sebelum ujian akhir.</p>`;
 
   openModal({
     title: isNew ? 'Tambah Mata Kuliah' : 'Ubah Mata Kuliah',
@@ -1628,8 +1700,9 @@ function courseModal(c){
       ${isNew?'':'<button class="btn btn-bad" id="f_del">'+icon('trash')+'Hapus</button>'}
       <button class="btn btn-primary" id="f_save">${icon('check',2.4)}${isNew?'Simpan & lanjut isi skor':'Simpan perubahan'}</button>`,
     onMount(r){
-      renderTopicList();
-      r.querySelector('#addTopic').onclick = () => { topicDraft.push({id:uid(),name:'',weight:1,score:null}); renderTopicList(); };
+      renderTopicList(); renderExamList();
+      r.querySelector('#addTopic').onclick = () => { topicDraft.push({id:uid(),name:'',weight:1,score:null}); renderTopicList(); renderExamList(); };
+      r.querySelector('#addExam').onclick = () => { examDraft.push({ id:uid(), name:'', date:'', topicIds:[] }); renderExamList(); };
       const del = r.querySelector('#f_del');
       if (del) del.onclick = () => { closeModal(); handleAct('del-course', c.id); };
       r.querySelector('#f_save').onclick = () => {
@@ -1641,10 +1714,12 @@ function courseModal(c){
           name, color: r.querySelector('#f_color').value,
           lecturer: r.querySelector('#f_lect').value.trim(),
           credits: num('#f_sks',0,12), location: r.querySelector('#f_loc').value.trim(),
-          examDate: r.querySelector('#f_exam').value || null,
           passingGrade: num('#f_pg',1,100), masteryGrade: num('#f_mg',1,100),
           topics: topicDraft.filter(t => t.name.trim()).map(t => ({...t, name:t.name.trim(), weight:Number(t.weight)||1})),
+          exams: examDraft.filter(e => e.date).map(e => ({ id:e.id||uid(), name:(e.name||'').trim()||'Ujian', date:e.date, topicIds:(e.topicIds||[]).slice() })),
         };
+        data.exams.forEach(e => e.topicIds = e.topicIds.filter(id => data.topics.some(t => t.id === id)));
+        data.examDate = data.exams.length ? data.exams.slice().sort((a,b)=>a.date<b.date?-1:1)[0].date : null;
         if (data.passingGrade!=null && data.masteryGrade!=null && data.masteryGrade < data.passingGrade){
           toast('warn','Ambang mastery terlalu rendah','Ambang mastery harus ≥ passing grade. Diperbaiki otomatis ke '+data.passingGrade+'%.');
           data.masteryGrade = data.passingGrade;
@@ -1669,6 +1744,47 @@ function courseModal(c){
     }
   });
 
+  function renderExamList(){
+    const box = $('#examList'); if (!box) return;
+    box.innerHTML = examDraft.map((e,i) => `
+      <div class="card" style="padding:12px;margin-bottom:9px">
+        <div class="row">
+          <div class="field" style="flex:1.2"><label>Nama ujian</label>
+            <input class="input" placeholder="UTS / UAS / Kuis 1" value="${esc(e.name)}" data-f="name"></div>
+          <div class="field" style="flex:1"><label>Tanggal</label>
+            <input class="input" type="date" value="${e.date||''}" data-f="date"></div>
+          <div class="field" style="flex:1"><label>Cakupan materi</label>
+            <select class="select" data-f="scope">
+              <option value="all" ${(e.topicIds||[]).length?'':'selected'}>Semua bab</option>
+              <option value="pick" ${(e.topicIds||[]).length?'selected':''}>Bab tertentu</option>
+            </select></div>
+          <button class="btn btn-sm btn-ghost" type="button" data-delx="${i}" style="align-self:flex-end" title="Hapus ujian">${icon('trash')}</button>
+        </div>
+        <div class="${(e.topicIds||[]).length?'':'hide'}" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px">
+          ${topicDraft.map((t,ti) => `<button type="button" class="chip" data-pick="${ti}"
+            style="${(e.topicIds||[]).includes(t.id)?'background:var(--brand);color:#fff;border-color:var(--brand)':''}">${esc(t.name)||('Bab '+(ti+1))}</button>`).join('')
+            || '<span class="xsmall muted">Tambahkan topik dulu di atas untuk memilih cakupan.</span>'}
+        </div>
+      </div>`).join('') || '<p class="xsmall muted" style="margin:2px 0 8px">Belum ada ujian terjadwal.</p>';
+    $$('#examList .card', box).forEach(card => {
+      const i = +card.querySelector('[data-delx]').dataset.delx;
+      card.querySelector('[data-f=name]').oninput = ev => examDraft[i].name = ev.target.value;
+      card.querySelector('[data-f=date]').onchange = ev => examDraft[i].date = ev.target.value;
+      card.querySelector('[data-f=scope]').onchange = ev => {
+        if (ev.target.value === 'all') examDraft[i].topicIds = [];
+        else if (!(examDraft[i].topicIds||[]).length) examDraft[i].topicIds = topicDraft.filter(t=>t.name.trim()).slice(0,1).map(t=>t.id);
+        renderExamList();
+      };
+      card.querySelector('[data-delx]').onclick = () => { examDraft.splice(i,1); renderExamList(); };
+      $$('[data-pick]', card).forEach(b => b.onclick = () => {
+        const id = topicDraft[+b.dataset.pick].id;
+        const arr = examDraft[i].topicIds = examDraft[i].topicIds || [];
+        const at = arr.indexOf(id);
+        at >= 0 ? arr.splice(at,1) : arr.push(id);
+        renderExamList();
+      });
+    });
+  }
   function renderTopicList(){
     const box = $('#topicList');
     if (!box) return;
@@ -1802,6 +1918,7 @@ function reviewModal(c, courseId, itemId){
   const ladder = activeLadder(c);
   const ladderAsli = ladderOf(c);
   const compressed = ladderAsli.join(',') !== ladder.join(',');
+  const plan = sessionPlan(c, state.settings.durationMin);
 
   const body = `
   <div style="display:flex;gap:12px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
@@ -1815,18 +1932,26 @@ function reviewModal(c, courseId, itemId){
     <b>Lakukan retrieval practice, bukan baca ulang</b>
     <span>Roediger &amp; Karpicke (2006): mencoba mengingat aktif meningkatkan retensi jangka panjang jauh lebih baik daripada membaca ulang materi. Tutup catatan dulu, tulis semua yang kamu ingat, baru cek.</span></div></div>
 
-  ${(c.topics||[]).length?`
-  <div class="sec-title">Fokus sesi ini</div>
+  ${(c.topics||[]).length && plan ? `
+  <div class="sec-title">Rencana sesi ini — ${plan.total} menit, porsi per bab</div>
+  ${plan.exam?`<div class="banner warn" style="margin:0 0 10px;padding:10px 12px">${icon('target',2.1)}<div>
+    <b>Prioritas: ${esc(plan.exam.name)} — ${relDay(plan.exam.date)}</b>
+    <span>${(plan.exam.topicIds||[]).length
+      ? 'Ujian hanya mencakup sebagian bab, jadi bab itu dapat porsi terbesar; bab lain tetap dipelihara biar tidak luruh sebelum ujian akhir.'
+      : 'Ujian mencakup seluruh bab.'}</span></div></div>`:''}
   <div style="display:flex;flex-direction:column;gap:7px">
-    ${weak.map(t=>topicLine(t,'bad')).join('')}
-    ${strong.map(t=>topicLine(t,'ok')).join('')}
-    ${(c.topics||[]).filter(t=>t.score==null).map(t=>topicLine(t,'mute')).join('')}
-  </div>`:''}
+    ${plan.focus.map(r=>planLine(r,true)).join('')}
+    ${plan.maintenance.length?`<div class="xsmall muted" style="margin:7px 0 1px;font-weight:800;letter-spacing:.6px">PEMELIHARAAN KUMULATIF — ${plan.maintenance.reduce((s,r)=>s+r.minutes,0)} MENIT</div>`:''}
+    ${plan.maintenance.map(r=>planLine(r,false)).join('')}
+  </div>
+  <p class="xsmall muted" style="margin-top:10px;line-height:1.6">Kerjakan <b>berselang-seling</b> antar bab tiap ±10 menit (interleaving),
+  bukan satu bab sampai tuntas lalu bab berikutnya — pola berselang terbukti memperbaiki retensi &amp; transfer
+  (Rohrer, Dedrick &amp; Stershic 2015; Kornell &amp; Bjork 2008).</p>`:''}
 
   <div class="sec-title">Langkah sesi (${state.settings.durationMin} menit)</div>
   <ol style="margin:0;padding-left:20px;font-size:13px;color:var(--ink-2);line-height:1.75">
     <li>Tutup semua catatan. Tulis/ucapkan dari ingatan: definisi, rumus, alur, dan contoh soal tiap topik.</li>
-    ${weak.length?`<li>Dahulukan topik lemah: <b>${esc(weak.map(t=>t.name).join(', '))}</b>.</li>`:'<li>Bagi waktu rata ke semua topik.</li>'}
+    ${plan&&plan.focus.length?`<li>Ikuti porsi menit: mulai dari <b>${esc(plan.focus.slice(0,3).map(r=>`${r.topic.name} (${r.minutes} mnt)`).join(', '))}</b>${plan.maintenance.length?`, lalu selingi ${esc(plan.maintenance[0].topic.name)} dkk.`:'.'}</li>`:'<li>Bagi waktu rata ke semua topik.</li>'}
     <li>Buka catatan, tandai bagian yang keliru atau hilang — bagian inilah yang perlu diulang.</li>
     <li>Tutup lagi, ulangi bagian yang salah sekali tanpa melihat.</li>
     <li>Kerjakan 2–3 soal latihan sebagai tes diri singkat.</li>
@@ -1871,6 +1996,15 @@ function reviewModal(c, courseId, itemId){
     }
   });
 
+  function planLine(r, isFocus){
+    const t = r.topic;
+    const tone = t.score==null ? 'mute' : t.score < pgOf(c) ? 'bad' : 'ok';
+    return `<div style="display:flex;align-items:center;gap:9px;padding:9px 12px;border-radius:10px;background:${isFocus?'var(--brand-soft)':'var(--bg-2)'}">
+      <span class="dot" style="background:${tone==='bad'?'var(--bad)':tone==='ok'?'var(--ok)':'var(--ink-3)'}"></span>
+      <span style="flex:1;min-width:0;font-size:13px;font-weight:650;overflow:hidden;text-overflow:ellipsis">${esc(t.name)}</span>
+      ${tone==='bad'?`<span class="badge b-bad">lemah • ${t.score}%</span>`:tone==='ok'?`<span class="badge b-ok">${t.score}%</span>`:`<span class="badge b-mute">belum dinilai</span>`}
+      <span class="chip" style="background:var(--card)">${r.minutes} mnt</span></div>`;
+  }
   function topicLine(t, tone){
     const col = tone==='bad'?'var(--bad)':tone==='ok'?'var(--ok)':'var(--ink-3)';
     const bg  = tone==='bad'?'var(--bad-soft)':tone==='ok'?'var(--ok-soft)':'var(--bg-2)';
@@ -2073,6 +2207,26 @@ function renderMethod(){
       </div>
     </div>
 
+    <div class="card"><div class="card-head"><h3>${icon('target',2)}</h3><h3>Cakupan ujian & porsi bab per sesi</h3>
+      <span class="hint">kenapa satu sesi tidak menyapu semua bab</span></div>
+      <div style="padding:16px 18px">
+        <p class="small" style="line-height:1.65;color:var(--ink-2)">Misal Kalkulus punya 6 bab: bab 1–3 untuk UTS, bab 4–6 untuk UAS.
+        Menjelang UTS, sesi review <b>tidak</b> menyapu enam bab sekaligus, dan <b>tidak juga</b> membuang bab 4–6.
+        Porsi menit tiap bab dihitung dari tiga bobot:</p>
+        <table class="tier-table" style="margin-top:10px"><thead><tr><th style="width:70px">Bobot</th><th>Arti</th><th style="width:220px">Dasar ilmiah</th></tr></thead><tbody>
+        <tr><td><b class="mono">45%</b></td><td>Kelemahan bab — skor di bawah passing grade selalu naik ke puncak porsi</td><td>mastery learning (Bloom 1984; McGaghie dkk.)</td></tr>
+        <tr><td><b class="mono">35%</b></td><td>Kedekatan ujian yang mencakup bab itu</td><td>Cepeda dkk. 2008 — celah optimal relatif terhadap test delay</td></tr>
+        <tr><td><b class="mono">20%</b></td><td>Sudah berapa lama bab tidak di-retrieval</td><td>spacing effect (Cepeda dkk. 2006)</td></tr>
+        </tbody></table>
+        <ul class="xsmall muted" style="margin:12px 0 0;padding-left:18px;line-height:1.75">
+          <li>Bab dalam cakupan ujian terdekat mendapat ±60% menit sesi; bab lain ±40% sebagai <b>pemeliharaan kumulatif</b> — ujian akhir mencakup semuanya dan lupa terus berjalan.</li>
+          <li>Di dalam sesi, bab dikerjakan <b>berselang-seling</b> (interleaving), bukan diblok per bab sampai tuntas: retensi &amp; transfer lebih baik (Rohrer, Dedrick &amp; Stershic 2015; Kornell &amp; Bjork 2008).</li>
+          <li>Setiap sesi yang selesai memperbarui penanda “terakhir diulang” tiap bab, jadi bab yang lama tidak disentuh otomatis naik porsinya di sesi berikutnya.</li>
+          <li>Setelah UTS lewat, bab 1–3 pindah ke kelompok pemeliharaan ber-gap panjang; ujian itu sendiri adalah retrieval event yang memperkuat (Roediger &amp; Karpicke 2006).</li>
+        </ul>
+      </div>
+    </div>
+
     <div class="card"><div class="card-head"><h3>${icon('brain',2)}</h3><h3>Cara menjalankan sesi review</h3></div>
       <div style="padding:16px 18px">
         <p class="small" style="line-height:1.65;color:var(--ink-2)">Jeda menjadwalkan <i>kapan</i> kamu mengulang. Yang menentukan hasilnya adalah <i>bagaimana</i> kamu mengulang. Roediger &amp; Karpicke (2006) menunjukkan siswa yang berlatih retrieval (menutup buku lalu mencoba mengingat) mengalahkan siswa yang membaca ulang empat kali — 61% vs 40% setelah satu minggu.</p>
@@ -2111,6 +2265,10 @@ function renderMethod(){
          'Tinjauan kritis: mastery learning dengan DP menaikkan akuisisi dan retensi keterampilan secara konsisten dibanding pengajaran konvensional.'],
         ['9','Storm, B. C., Bjork, E. L., & Storm, J. C. (2010). "When and why expanding retrieval practice enhances long-term retention." <i>Memory & Cognition</i>.',
          'Memperjelas kapan expanding retrieval membantu dan kapan tidak — dasar aturan "Lupa → kembali ke tahap 1" dan "Agak sulit → ulangi tahap dengan celah pendek".'],
+        ['10','Rohrer, D., Dedrick, R. F., & Stershic, S. (2015). "Interleaved practice improves performance of mathematics skills." <i>Journal of Educational Psychology</i>, 107(3), 790–798.',
+         'Latihan matematika yang diacak antar jenis soal menghasilkan performa tes akhir jauh lebih baik daripada latihan diblok per jenis soal. Dasar instruksi "kerjakan berselang-seling antar bab" pada setiap sesi review Jeda.'],
+        ['11','Kornell, N., & Bjork, R. A. (2008). "Learning concepts and categories: Is spacing the enemy of induction?" <i>Psychological Science</i>, 19(6), 585–592.',
+         'Contoh lain keunggulan penyajian berselang dibanding diblok — memperkuat kebijakan interleaving pada rencana sesi per bab.'],
       ].map(([n,t,d])=>`<div class="cite"><div class="no">${n}</div><div><b>${t}</b><p>${d}</p></div></div>`).join('')}
       </div>
     </div>
@@ -2161,7 +2319,8 @@ function renderSettings(){
       <span class="hint">dipakai saat export .ics</span></div>
       <div style="padding:16px 18px">
         <div class="row">
-          <div class="field"><label>Jam mulai review</label><input class="input" id="set_hour" type="number" min="0" max="23" value="${S.reviewHour}"></div>
+          <div class="field"><label>Jam mulai review</label><input class="input" id="set_hour" type="number" min="0" max="23" value="${S.reviewHour}">
+            <div class="help">Hanya menetapkan jam untuk event kalender &amp; pop-up. Hari review tetap dihitung dari ladder (hari ke-1, 3, 7, ...).</div></div>
           <div class="field"><label>Menit</label><input class="input" id="set_min" type="number" min="0" max="59" value="${S.reviewMinute}"></div>
           <div class="field"><label>Durasi (menit)</label><input class="input" id="set_dur" type="number" min="5" max="240" step="5" value="${S.durationMin}"></div>
         </div>
@@ -2410,6 +2569,10 @@ function seedDemo(){
     mk('Statistika','Dr. Hendra Kusuma',3,'#c97a05', null, [['Distribusi Normal',78],['Uji Hipotesis',71],['Regresi Linear',80],['ANOVA',66]], 76, 2),
     mk('Jaringan Komputer','Ir. Siti Rahmawati',3,'#1f7ae0', addDays(t,55), [['OSI & TCP/IP',84],['Subnetting',58],['Routing',77],['Keamanan Jaringan',81]], null, 1),
   ];
+  demo[0].exams = [{ id:uid(), name:'UTS', date:addDays(t,26), topicIds:demo[0].topics.slice(0,3).map(x=>x.id) }];
+  demo[1].exams = [{ id:uid(), name:'UTS', date:addDays(t,12), topicIds:demo[1].topics.slice(0,2).map(x=>x.id) },
+                   { id:uid(), name:'UAS', date:addDays(t,45), topicIds:[] }];
+  buildSchedule(demo[0]); buildSchedule(demo[1]);
   state.courses = demo;
   // tandai sebagian sesi sudah selesai supaya terlihat progresnya
   const c0 = demo[0];
@@ -2432,6 +2595,7 @@ window.Jeda = {
   reset(){ state = defaultState(); save(); renderAll(); },
   buildSchedule, recordScore, completeItem, buildICS, exportICS, exportJSON, importJSON,
   gradeOf, pgOf, mgOf, ladderOf, nextItem, dueToday, overdue, upcoming, allEvents,
+  sessionPlan, courseExams, nearestExam, examScopeIds,
   seedDemo, go, RESEARCH, version: '1.0.0',
 };
 
@@ -2524,6 +2688,8 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){
     c.history = c.history || [];
     if (!c.baseDate) c.baseDate = c.lastScoreDate || c.createdAtISO || todayISO();
     if (!c.status) c.status = c.lastScore == null ? 'ungraded' : gradeOf(c.lastScore, c).tier;
+    c.exams = c.exams || [];
+    if (!c.exams.length && c.examDate) c.exams = [{ id:uid(), name:'Ujian', date:c.examDate, topicIds:[] }];
     if (c.examDate && !(c.schedule||[]).length) buildSchedule(c);
   });
 
